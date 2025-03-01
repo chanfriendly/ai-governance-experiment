@@ -1,0 +1,19 @@
+# Base configuration for agent testing
+model:
+  name: "deepseek-r1:8b"
+  # Alternatively, use one of these models based on what's available
+  # name: "deepseek-r1-distill-llama-8b"
+  # name: "meta-llama/Llama-3-8B-hf"
+  # name: "mistralai/Mistral-7B-v0.1"
+  
+inference:
+  max_tokens: 1024
+  temperature: 0.7
+  top_p: 0.9
+  
+dataset:
+  scenario_path: "data/scenarios/trolley.txt"
+  
+agent:
+  name: "effective_altruism"
+  prompt_template_path: "configs/agents/effective_altruism/prompt.txt"
