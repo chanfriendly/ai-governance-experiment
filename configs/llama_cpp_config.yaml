@@ -1,0 +1,15 @@
+# configs/llama_cpp_config.yaml
+model:
+  model_name: "/Users/christianglass/Library/Caches/llama.cpp/unsloth_DeepSeek-R1-Distill-Llama-8B-GGUF_DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf"  # Update with your model path
+  model_kwargs:
+    n_gpu_layers: 0          # Set to a higher number if you have GPU support
+    n_ctx: 2048              # Context window size
+    n_batch: 512             # Batch size for processing
+    low_vram: true           # Memory optimization
+    
+generation:
+  max_new_tokens: 1024
+  temperature: 0.7
+  top_p: 0.9
+  
+engine: LLAMA_CPP
