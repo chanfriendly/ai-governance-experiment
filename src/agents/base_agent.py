@@ -2,118 +2,133 @@ from typing import Dict, List, Any, Optional
 import os
 import json
 import logging
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
+import re
 
 class Agent:
     def __init__(
         self,
-        model_path: str,
+        model_engine,  # This will be your LLAMACPP engine
         system_prompt: str,
         name: str,
-        temperature: float = 0.7,
-        max_new_tokens: int = 512
+        temperature: float = 0.3,
+        max_new_tokens: int = 1536,
+        reasoning_window: int = 300  # Control the thinking/reasoning process
     ):
         """
         Initialize an agent with a specialized system prompt.
         
         Args:
-            model_path: Path to the model
+            model_engine: The inference engine to use for generation
             system_prompt: System prompt that defines the agent's specialization
             name: Name of the agent
             temperature: Sampling temperature for generation
             max_new_tokens: Maximum number of tokens to generate
+            reasoning_window: Approximate token limit for reasoning section
         """
         self.name = name
         self.system_prompt = system_prompt
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
+        self.model_engine = model_engine
+        self.reasoning_window = reasoning_window
         
-        # Load model and tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            os.path.join(model_path, "tokenizer") 
-            if os.path.exists(os.path.join(model_path, "tokenizer")) 
-            else model_path
-        )
-        
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_path,
-            device_map="auto",
-            torch_dtype=torch.float16
-        )
-        
-        logging.info(f"Agent {name} initialized with model {model_path}")
+        logging.info(f"Agent {name} initialized")
     
-    def generate_response(self, messages: List[Dict[str, str]]) -> str:
+    def respond(self, scenario: str, conversation_history: Optional[List[Dict[str, str]]] = None) -> Dict[str, str]:
         """
-        Generate a response based on the conversation history.
+        Generate a response to the given scenario.
         
         Args:
-            messages: List of message dictionaries with 'role' and 'content' keys
-        
+            scenario: Text describing the scenario to respond to
+            conversation_history: Optional list of previous messages
+            
         Returns:
-            Generated response text
+            Dictionary containing reasoning, decision, and full response
         """
-        # Format the messages according to the model's expected format
-        formatted_prompt = self._format_messages(messages)
+        # Format the input with system prompt, conversation history, and scenario
+        formatted_input = self._format_input(scenario, conversation_history)
         
-        # Tokenize the prompt
-        inputs = self.tokenizer(formatted_prompt, return_tensors="pt").to(self.model.device)
+        # Generate response using the model engine
+        response = self.model_engine.generate(
+            formatted_input,
+            max_tokens=self.max_new_tokens,
+            temperature=self.temperature
+        )
         
-        # Generate a response
-        with torch.no_grad():
-            outputs = self.model.generate(
-                inputs.input_ids,
-                max_new_tokens=self.max_new_tokens,
-                temperature=self.temperature,
-                do_sample=True,
-                pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id
-            )
+        # Extract reasoning and decision from response
+        reasoning, decision = self._parse_response(response)
         
-        # Decode the response
-        response = self.tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-        
-        return response.strip()
+        return {
+            "reasoning": reasoning,
+            "decision": decision,
+            "full_response": response
+        }
     
-    def _format_messages(self, messages: List[Dict[str, str]]) -> str:
+    def _format_input(self, scenario: str, conversation_history: Optional[List[Dict[str, str]]] = None) -> str:
         """
-        Format messages for the model.
-        This will need to be adjusted based on the specific model's expected format.
+        Format the input for the model engine.
         
         Args:
-            messages: List of message dictionaries
-        
+            scenario: The scenario text
+            conversation_history: Optional previous conversation
+            
         Returns:
-            Formatted prompt string
+            Formatted input string
         """
-        # Add the system prompt as the first message if not present
-        if not messages or messages[0].get("role") != "system":
-            messages = [{"role": "system", "content": self.system_prompt}] + messages
+        # Start with the system prompt
+        formatted = f"<|system|>\n{self.system_prompt}\n\n"
         
-        # Basic formatting - adjust based on model requirements
-        formatted = ""
+        # Add conversation history if provided
+        if conversation_history:
+            for message in conversation_history:
+                role = message.get("role", "user")
+                content = message.get("content", "")
+                formatted += f"<|{role}|>\n{content}\n\n"
         
-        for msg in messages:
-            if msg["role"] == "system":
-                formatted += f"<|system|>\n{msg['content']}\n"
-            elif msg["role"] == "user":
-                formatted += f"<|user|>\n{msg['content']}\n"
-            elif msg["role"] == "assistant":
-                formatted += f"<|assistant|>\n{msg['content']}\n"
-        
-        # Add the final assistant prompt
-        if messages[-1]["role"] != "assistant":
-            formatted += "<|assistant|>\n"
+        # Add the current scenario as a user message
+        formatted += f"<|user|>\n{scenario}\n\n<|assistant|>\n"
         
         return formatted
-
+    
+    def _parse_response(self, response: str) -> tuple[str, str]:
+        """
+        Parse the model response to extract reasoning and decision.
+        
+        Args:
+            response: The full response text from the model
+            
+        Returns:
+            Tuple of (reasoning, decision)
+        """
+        # Extract reasoning if enclosed in <think></think> tags
+        reasoning_match = re.search(r'<think>(.*?)</think>', response, re.DOTALL)
+        reasoning = reasoning_match.group(1).strip() if reasoning_match else ""
+        
+        # If there's no explicit reasoning, check if there's a natural division
+        if not reasoning and len(response.split('\n\n')) > 1:
+            parts = response.split('\n\n')
+            # Assume first part might be reasoning
+            reasoning = parts[0]
+            # Rest is the decision
+            decision = '\n\n'.join(parts[1:])
+        else:
+            # Remove the reasoning section from the response if it exists
+            decision = re.sub(r'<think>.*?</think>', '', response, flags=re.DOTALL).strip()
+            
+            # If decision is empty, use the whole response
+            if not decision:
+                decision = response
+        
+        return reasoning, decision
+    
     def save_config(self, path: str) -> None:
         """Save agent configuration."""
         config = {
             "name": self.name,
             "system_prompt": self.system_prompt,
             "temperature": self.temperature,
-            "max_new_tokens": self.max_new_tokens
+            "max_new_tokens": self.max_new_tokens,
+            "reasoning_window": self.reasoning_window
         }
         
         os.makedirs(path, exist_ok=True)

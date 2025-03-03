@@ -4,37 +4,58 @@ This document outlines the immediate next steps for our AI governance experiment
 
 ## Immediate Next Steps (Phase 1 Completion)
 
-1. **Test Individual Agents**
-   - Run the  script for each agent type with the trolley problem
-   - Document the responses and analyze how well each agent maintains its specialization
-   - Iterate on prompt templates if necessary to ensure clear differentiation between agents
+1. **Refactor Code for Platform Independence**
+   - Replace hardcoded paths (e.g., `/Users/[my_user]/...`) with relative paths or environment variables
+   - Create a configuration file for system-specific settings
+   - Add documentation on setup requirements for other researchers
+   - Ensure all paths use OS-agnostic path joining (`os.path.join`)
 
-2. **Implement Response Analysis Tools**
-   - Create a simple analysis script that can identify key phrases or reasoning patterns in agent responses
-   - Define metrics for measuring how well each agent adheres to its intended framework
-   - Compare responses across agents to identify similarities and differences
+2. **Improve Oumi Integration**
+   - Fix configuration issues with Oumi's expected format
+   - Update YAML files to properly reference prompts
+   - Create a working version of `trolley_test.py` using Oumi
+   - Document correct Oumi configuration format for future reference
 
-3. **Develop Agent Communication Protocol**
-   - Design a JSON schema for message exchange between agents
-   - Implement basic message handling functions
-   - Create a simple conversation history tracker
+3. **Analyze Initial Agent Responses**
+   - Compare responses from each agent for the trolley problem
+   - Identify distinct reasoning patterns for each framework
+   - Document how well each agent adheres to its assigned framework
+   - Note any unexpected results or interesting patterns
 
-4. **Prepare for Phase 2**
-   - Design simple two-agent conversation patterns
-   - Create test scenarios for agent interactions
-   - Implement a basic conversation controller
+4. **Expand Scenario Library**
+   - Create additional ethical scenarios beyond the trolley problem
+   - Implement resource allocation scenarios
+   - Develop content moderation test cases
+   - Design scenarios with competing stakeholder interests
+
+5. **Prepare for Phase 2**
+   - Design agent-to-agent communication protocol
+   - Create conversation tracking mechanism
+   - Implement simple two-agent conversation pattern
+   - Develop framework for measuring interaction quality
 
 ## Technical Implementation Details
 
-### Agent Testing
-To test individual agents:
-```bash
-./test_agent_oumi.py --agent effective_altruism --scenario trolley
-./test_agent_oumi.py --agent deontological --scenario trolley
-./test_agent_oumi.py --agent care_ethics --scenario trolley
-./test_agent_oumi.py --agent democratic_process --scenario trolley
-./test_agent_oumi.py --agent checks_and_balances --scenario trolley
+### Refactoring for Platform Independence
+
+Replace hardcoded paths:
+
+```python
+# Before
+MODEL_PATH = "/Users/christianglass/Library/Caches/llama.cpp/unsloth_DeepSeek-R1-Distill-Llama-8B-GGUF_DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf"
+
+# After
+import os
+from pathlib import Path
+
+# Either use environment variables
+MODEL_PATH = os.environ.get("MODEL_PATH")
+
+# Or use relative paths from project root
+PROJECT_ROOT = Path(__file__).parent.absolute()
+MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "deepseek-r1-distill-llama-8b.gguf")
 ```
+
 
 ### Message Format Design
 Design a message format for inter-agent communication that includes:
@@ -53,6 +74,27 @@ Implement basic functions for:
 - Formatting agent prompts with conversation context
 - Extracting structured information from responses
 
+### Oumi Configuration Format
+Correct Oumi configuration format (based on their documentation):
+``` yaml
+model:
+  model_name: "path/to/model.gguf"  # Use relative path
+  model_kwargs:
+    n_gpu_layers: 0
+    n_ctx: 2048
+    n_batch: 512
+    low_vram: true
+  # Reference prompt file instead of embedding in YAML
+  # system_prompt_file: "path/to/prompt.txt"  # If this syntax is supported
+  
+generation:
+  max_new_tokens: 1536
+  temperature: 0.3
+  top_p: 0.9
+  
+engine: LLAMACPP
+```
+
 ## Preparation for Phase 2
 
 Once Phase 1 is complete, we'll move to Phase 2 where we implement basic multi-agent interactions. Key preparations include:
@@ -62,7 +104,13 @@ Once Phase 1 is complete, we'll move to Phase 2 where we implement basic multi-a
    - Statement-response
    - Proposal-critique
    - Question-answer
-3. Designing metrics to evaluate the quality of multi-agent discussions
+3. Developing Conversation Analysis Tools
+
+   - Create metrics for measuring interaction quality
+   - Implement tools for detecting emergent patterns
+   - Develop visualization for conversation flow
+   - Create framework for measuring agreement/disagreement
+
 
 ## Research Questions to Consider
 
@@ -75,5 +123,5 @@ As we move forward, keep these research questions in mind:
 ## Resources
 
 - Oumi documentation: https://oumi.ai/docs
-- DeepSeek Model documentation: Check the official DeepSeek repository
-- Multi-agent conversation examples: Review relevant academic papers on multi-agent dialogue systems
+- Unsloth for distilled and quantized models: https://github.com/unslothai/unsloth
+- DeepSeek Model documentation: https://github.com/deepseek-ai/DeepSeek-R1

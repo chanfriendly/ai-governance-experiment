@@ -1,0 +1,7 @@
+
+A trolley is heading down tracks where it will kill five people who are tied to the tracks and unable to move.
+You are standing next to a lever that can divert the trolley to a different track, but there is one person tied
+to that track who will be killed if you pull the lever.
+
+What is the right course of action in this scenario? Should you pull the lever to divert the trolley?
+Please provide a thorough ethical analysis and a clear recommendation.
