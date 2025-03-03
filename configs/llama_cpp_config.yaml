@@ -1,15 +1,18 @@
-# configs/llama_cpp_config.yaml
 model:
-  model_name: "/Users/christianglass/Library/Caches/llama.cpp/unsloth_DeepSeek-R1-Distill-Llama-8B-GGUF_DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf"  # Update with your model path
+  model_name: "/Users/christianglass/Library/Caches/llama.cpp/unsloth_DeepSeek-R1-Distill-Llama-8B-GGUF_DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf"
   model_kwargs:
-    n_gpu_layers: 0          # Set to a higher number if you have GPU support
-    n_ctx: 2048              # Context window size
-    n_batch: 512             # Batch size for processing
-    low_vram: true           # Memory optimization
+    n_gpu_layers: 0
+    n_batch: 512
+    low_vram: true
+  system_prompt: |
+    You are a helpful, thoughtful assistant. When answering questions:
+    1. If needed, think through your reasoning step by step
+    2. Keep your reasoning concise and focused
+    3. Always conclude with a clear, direct answer
     
 generation:
-  max_new_tokens: 1024
-  temperature: 0.7
+  max_new_tokens: 1536  # Increase token limit
+  temperature: 0.3      # Balance between creativity and focus
   top_p: 0.9
   
-engine: LLAMA_CPP
+engine: LLAMACPP
