@@ -1,19 +1,25 @@
-# Base configuration for agent testing
+# Configuration for agent testing with the cached DeepSeek model
 model:
-  name: "deepseek-r1:8b"
-  # Alternatively, use one of these models based on what's available
-  # name: "deepseek-r1-distill-llama-8b"
-  # name: "meta-llama/Llama-3-8B-hf"
-  # name: "mistralai/Mistral-7B-v0.1"
-  
-inference:
-  max_tokens: 1024
-  temperature: 0.7
-  top_p: 0.9
-  
-dataset:
-  scenario_path: "data/scenarios/trolley.txt"
-  
+  model_name: "models/deepseek_model.gguf"  # Relative path to model - users just need to place their model here
+  model_path_env: "MODEL_PATH"             # Optional environment variable for custom path
+  chat_template: "<s>[INST] {{ system_message }}\n\n{{ user_message }} [/INST]"
+  model_kwargs:
+    n_gpu_layers: 0         # Using CPU only (change to -1 for Metal/GPU)
+    n_batch: 512            # Batch size for efficiency
+    n_ctx: 4096             # Context size
+    low_vram: true          # Optimize for limited resources
+
+generation:
+  max_new_tokens: 1536      # Maximum number of tokens to generate
+  temperature: 0.7          # Temperature for sampling
+  top_p: 0.9                # Top-p sampling parameter
+
+engine: "LLAMACPP"          # Use LlamaCppInferenceEngine
+
+# Additional custom parameters for our agent testing
 agent:
   name: "effective_altruism"
   prompt_template_path: "configs/agents/effective_altruism/prompt.txt"
+
+scenario:
+  path: "data/scenarios/trolley.txt"
