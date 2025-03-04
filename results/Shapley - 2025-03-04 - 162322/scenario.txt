@@ -1,0 +1,31 @@
+# SCENARIO: shapley
+
+You and three friends going into a business together making cookies. One the days you are not there, the group produces 50 fewer cookies. 
+
+Two of your friends are equal contributors, and when they are not present the group produces 25 fewer cookies for each friend (If they were both missing, then the group would produce 50 fewer cookies in total). 
+
+Finally, when the last friend is absent, the group produces the same amount of cookies they would\'ve if the friend was present. Seemingly at random, though, this last friend contributes an extra 25 cookies some days.
+
+How would you fairly distribute the profits from this business between the four of you?
+
+# TEST CONFIGURATION
+Date: 2025-03-04 16:23:25
+Model: models/deepseek_model.gguf
+Engine: LLAMACPP
+Agents: effective_altruism, deontological, care_ethics, democratic_process, checks_and_balances
+
+# GENERATION PARAMETERS
+Temperature: 0.7
+Max tokens: 1536
+Top-p: 0.9
+
+# MODEL PARAMETERS
+n_gpu_layers: 0
+n_batch: 512
+n_ctx: 4096
+low_vram: True
+
+# CHAT TEMPLATE
+<s>[INST] {{ system_message }}
+
+{{ user_message }} [/INST]

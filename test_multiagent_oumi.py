@@ -1,4 +1,4 @@
-def get_model_path(config: Dict[str, Any]) -> str:
+def get_model_path(config: dict[str, any]) -> str:
     """
     Resolve the model path using various methods:
     1. Check if an environment variable is specified and use that
@@ -325,7 +325,8 @@ def main():
                                 "democratic_process", "checks_and_balances"],
                         help="Agents to test")
     parser.add_argument("--scenario", type=str, required=True,
-                        choices=["trolley", "resource_allocation", "content_moderation"],
+                        choices=["trolley", "resource_allocation", "content_moderation", "power_transfer", "trickle_down", 
+                                 "trolley_value", "prisoner", "shapley", "genocide", "affirmative"],
                         help="Scenario to test")
     parser.add_argument("--engine", type=str,
                         choices=["NATIVE", "VLLM", "LLAMACPP"],

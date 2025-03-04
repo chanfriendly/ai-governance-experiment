@@ -1,0 +1,25 @@
+# SCENARIO: content_moderation
+
+A social media platform is deciding whether to remove a controversial political post that contains misleading information but is from a major political figure. What factors should be considered in this decision?
+
+# TEST CONFIGURATION
+Date: 2025-03-04 13:46:30
+Model: models/deepseek_model.gguf
+Engine: LLAMACPP
+Agents: effective_altruism, deontological, care_ethics, democratic_process, checks_and_balances
+
+# GENERATION PARAMETERS
+Temperature: 0.7
+Max tokens: 1536
+Top-p: 0.9
+
+# MODEL PARAMETERS
+n_gpu_layers: 0
+n_batch: 512
+n_ctx: 4096
+low_vram: True
+
+# CHAT TEMPLATE
+<s>[INST] {{ system_message }}
+
+{{ user_message }} [/INST]

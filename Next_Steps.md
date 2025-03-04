@@ -4,11 +4,12 @@ This document outlines the immediate next steps for our AI governance experiment
 
 ## Immediate Next Steps (Phase 1 Completion)
 
-1. **Refactor Code for Platform Independence**
-   - Replace hardcoded paths (e.g., `/Users/[my_user]/...`) with relative paths or environment variables
-   - Create a configuration file for system-specific settings
-   - Add documentation on setup requirements for other researchers
-   - Ensure all paths use OS-agnostic path joining (`os.path.join`)
+1. **Response Analysis Tool Development (HIGH PRIORITY)**
+- Create tools to analyze response patterns across different agents
+- Implement keyword and theme extraction from agent responses
+- Develop metrics for comparing reasoning approaches
+- Build visualizations to highlight differences in agent decision-making
+- Create a framework for evaluating framework adherence
 
 2. **Improve Oumi Integration**
    - Fix configuration issues with Oumi's expected format
@@ -34,26 +35,39 @@ This document outlines the immediate next steps for our AI governance experiment
    - Implement simple two-agent conversation pattern
    - Develop framework for measuring interaction quality
 
-## Technical Implementation Details
+## Analysis Tool Implementation Details
 
-### Refactoring for Platform Independence
-
-Replace hardcoded paths:
+### Response Pattern Analyzer
 
 ```python
-# Before
-MODEL_PATH = "/Users/christianglass/Library/Caches/llama.cpp/unsloth_DeepSeek-R1-Distill-Llama-8B-GGUF_DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf"
-
-# After
-import os
-from pathlib import Path
-
-# Either use environment variables
-MODEL_PATH = os.environ.get("MODEL_PATH")
-
-# Or use relative paths from project root
-PROJECT_ROOT = Path(__file__).parent.absolute()
-MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "deepseek-r1-distill-llama-8b.gguf")
+class ResponseAnalyzer:
+    def __init__(self):
+        self.frameworks = ["effective_altruism", "deontological", "care_ethics", 
+                          "democratic_process", "checks_and_balances"]
+        self.framework_keywords = {
+            "effective_altruism": ["utility", "outcomes", "maximize", "consequentialist", 
+                                  "evidence", "calculation", "impact", "greater good"],
+            "deontological": ["duty", "obligation", "rights", "universal law", "dignity", 
+                            "categorical", "principle", "inherent"],
+            "care_ethics": ["relationship", "care", "vulnerability", "context", 
+                          "connection", "responsibility", "attentiveness"],
+            "democratic_process": ["participation", "stakeholder", "transparency", 
+                                  "representation", "vote", "deliberation", "consent"],
+            "checks_and_balances": ["oversight", "power", "distribution", "accountability", 
+                                   "authority", "procedure", "institutional"]
+        }
+    
+    def analyze_response(self, agent_name, response_text):
+        """Analyze an agent's response for framework adherence and reasoning patterns"""
+        # Implementation here
+        
+    def compare_responses(self, responses_dict):
+        """Compare responses across different agents"""
+        # Implementation here
+        
+    def visualize_comparison(self, comparison_data):
+        """Create visualization of response comparisons"""
+        # Implementation here
 ```
 
 
@@ -74,26 +88,14 @@ Implement basic functions for:
 - Formatting agent prompts with conversation context
 - Extracting structured information from responses
 
-### Oumi Configuration Format
-Correct Oumi configuration format (based on their documentation):
-``` yaml
-model:
-  model_name: "path/to/model.gguf"  # Use relative path
-  model_kwargs:
-    n_gpu_layers: 0
-    n_ctx: 2048
-    n_batch: 512
-    low_vram: true
-  # Reference prompt file instead of embedding in YAML
-  # system_prompt_file: "path/to/prompt.txt"  # If this syntax is supported
-  
-generation:
-  max_new_tokens: 1536
-  temperature: 0.3
-  top_p: 0.9
-  
-engine: LLAMACPP
-```
+### Framework Adherence Metrics
+
+Implementing the following metrics for each agent response:
+1. **Framework Keyword Density**: Percentage of framework-specific terms
+2. **Cross-Framework Influence**: Detection of reasoning from other frameworks
+3. **Decision Consistency**: Consistency of decisions across similar scenarios
+4. **Reasoning Structure**: Analysis of how agents structure their ethical reasoning
+5. **Framework Distinctiveness**: Quantitative measure of how distinct each agent's approach is
 
 ## Preparation for Phase 2
 
@@ -112,16 +114,20 @@ Once Phase 1 is complete, we'll move to Phase 2 where we implement basic multi-a
    - Create framework for measuring agreement/disagreement
 
 
-## Research Questions to Consider
+## Research Questions to Investigate
 
-As we move forward, keep these research questions in mind:
-1. How consistently do the agents maintain their assigned frameworks?
-2. What types of reasoning patterns emerge for each agent type?
-3. Are there certain scenario types where some frameworks struggle to provide clear guidance?
-4. How do we measure the "distinctiveness" of each agent's perspective?
+1. How consistently do the agents maintain their assigned frameworks across different scenario types?
+2. Which frameworks provide more decisive ethical guidance versus more nuanced/contextual responses?
+3. Are there scenarios where certain frameworks consistently fail to provide clear guidance?
+4. How do we measure and maximize the "distinctiveness" of each agent's perspective?
+5. Can we identify patterns of reasoning that are unique to each framework?
+6. How does scenario framing affect agent responses within their frameworks
 
 ## Resources
 
 - Oumi documentation: https://oumi.ai/docs
 - Unsloth for distilled and quantized models: https://github.com/unslothai/unsloth
 - DeepSeek Model documentation: https://github.com/deepseek-ai/DeepSeek-R1
+- Natural Language Toolkit (NLTK): https://www.nltk.org/ (for text analysis)
+- spaCy: https://spacy.io/ (for NLP and text processing)
+- Matplotlib and Seaborn: For creating visualizations of agent responses
