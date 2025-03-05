@@ -1,0 +1,11 @@
+# configs/dialogue_test.yaml
+agents:
+  - name: effective_altruism
+    specialization: effective_altruism
+    model_path: "models/deepseek_model.gguf" 
+    temperature: 0.7
+  
+  - name: deontological
+    specialization: deontological
+    model_path: "models/deepseek_model.gguf" 
+    temperature: 0.7

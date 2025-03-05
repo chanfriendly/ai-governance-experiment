@@ -1,5 +1,3 @@
-# Create updated specialized agent factory
-cat > src/agents/agent_factory.py << EOL
 from typing import Dict, Any
 import os
 import logging
@@ -90,7 +88,7 @@ Value transparency, independent review, and the rule of law in decision-making s
 
 def create_specialized_agent(
     specialization: str,
-    model_path: str,
+    model_engine,  # Changed parameter: now expects an engine object
     name: str = None,
     temperature: float = 0.7,
     custom_prompt: str = None
@@ -100,8 +98,8 @@ def create_specialized_agent(
     
     Args:
         specialization: One of 'effective_altruism', 'deontological', 'care_ethics',
-                       'democratic_process', 'checks_and_balances', or 'custom' (requires custom_prompt)
-        model_path: Path to the model
+                       'democratic_process', 'checks_and_balances', or 'custom'
+        model_engine: The inference engine to use (not just a path)
         name: Name for the agent (defaults to specialization)
         temperature: Temperature for generation
         custom_prompt: Custom system prompt (used when specialization='custom')
@@ -124,5 +122,4 @@ def create_specialized_agent(
     system_prompt = custom_prompt if specialization == "custom" else SYSTEM_PROMPTS[specialization]
     
     logging.info(f"Creating {specialization} agent named {name}")
-    return Agent(model_path, system_prompt, name, temperature)
-EOL
+    return Agent(model_engine, system_prompt, name, temperature)

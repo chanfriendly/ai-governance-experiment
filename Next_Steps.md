@@ -2,116 +2,80 @@
 
 This document outlines the immediate next steps for our AI governance experiment, picking up from where we left off in setting up the initial agent frameworks.
 
-## Immediate Next Steps (Phase 1 Completion)
+## Phase 1 Revisit Plan
 
-1. **Response Analysis Tool Development (HIGH PRIORITY)**
-- Create tools to analyze response patterns across different agents
-- Implement keyword and theme extraction from agent responses
-- Develop metrics for comparing reasoning approaches
-- Build visualizations to highlight differences in agent decision-making
-- Create a framework for evaluating framework adherence
+While we're moving forward to Phase 2, we need to revisit several Phase 1 components to strengthen our foundation:
 
-2. **Improve Oumi Integration**
-   - Fix configuration issues with Oumi's expected format
-   - Update YAML files to properly reference prompts
-   - Create a working version of `trolley_test.py` using Oumi
-   - Document correct Oumi configuration format for future reference
+1. **Evaluate Model Responses**: Analyze how well each agent embodies its philosophical framework
+2. **Refine Scenarios**: Adjust scenarios based on agent performance and interaction quality
+3. **Validate Analysis Tools**: Ensure our metrics accurately capture the philosophical nuances
+4. **Prepare for Fine-tuning**: Gather and format training data for future model fine-tuning
 
-3. **Analyze Initial Agent Responses**
-   - Compare responses from each agent for the trolley problem
-   - Identify distinct reasoning patterns for each framework
-   - Document how well each agent adheres to its assigned framework
-   - Note any unexpected results or interesting patterns
+This cyclical approach ensures our foundation remains solid as we build more complex interactions.
 
-4. **Expand Scenario Library**
-   - Create additional ethical scenarios beyond the trolley problem
-   - Implement resource allocation scenarios
-   - Develop content moderation test cases
-   - Design scenarios with competing stakeholder interests
+## Immediate Next Steps (Phase 2 Enhancement)
 
-5. **Prepare for Phase 2**
-   - Design agent-to-agent communication protocol
-   - Create conversation tracking mechanism
-   - Implement simple two-agent conversation pattern
-   - Develop framework for measuring interaction quality
+1. **Improve Agent Interaction (HIGH PRIORITY)**
+   - Strengthen agent identity in prompts to maintain philosophical consistency
+   - Enhance context awareness to make agents respond to each other's arguments
+   - Create structured response formats that encourage dialogue
+   - Implement dialogue memory for more coherent conversations
+   - Develop agent-specific configuration files for each philosophical framework
 
-## Analysis Tool Implementation Details
+2. **Implement Enhanced Dialogue System**
+   - Update agent prompts with dialogue-specific instructions:
+     ```
+     You are participating in a philosophical dialogue about an ethical scenario.
+     Your role is to represent the {agent_name} perspective.
+     When responding to other agents, address their arguments directly, explaining
+     where you agree or disagree based on your philosophical principles.
+     
+     Your response should:
+     1. Briefly summarize the other agent's key points
+     2. Identify areas of agreement and disagreement
+     3. Explain your position using core principles from your philosophical framework
+     4. Ask at least one question to advance the dialogue
+     ```
+   - Add context awareness so agents respond directly to each other's arguments
+   - Create a more sophisticated dialogue controller that manages turn-taking
+   - Implement dialogue history summarization for longer discussions
 
-### Response Pattern Analyzer
+3. **Develop Dialogue Analysis Tools**
+   - Extend our analysis tools to evaluate dialogue quality
+   - Create metrics for measuring response relevance between agents
+   - Develop visualization tools for dialogue patterns
+   - Implement framework adherence tracking in conversations
 
-```python
-class ResponseAnalyzer:
-    def __init__(self):
-        self.frameworks = ["effective_altruism", "deontological", "care_ethics", 
-                          "democratic_process", "checks_and_balances"]
-        self.framework_keywords = {
-            "effective_altruism": ["utility", "outcomes", "maximize", "consequentialist", 
-                                  "evidence", "calculation", "impact", "greater good"],
-            "deontological": ["duty", "obligation", "rights", "universal law", "dignity", 
-                            "categorical", "principle", "inherent"],
-            "care_ethics": ["relationship", "care", "vulnerability", "context", 
-                          "connection", "responsibility", "attentiveness"],
-            "democratic_process": ["participation", "stakeholder", "transparency", 
-                                  "representation", "vote", "deliberation", "consent"],
-            "checks_and_balances": ["oversight", "power", "distribution", "accountability", 
-                                   "authority", "procedure", "institutional"]
-        }
-    
-    def analyze_response(self, agent_name, response_text):
-        """Analyze an agent's response for framework adherence and reasoning patterns"""
-        # Implementation here
-        
-    def compare_responses(self, responses_dict):
-        """Compare responses across different agents"""
-        # Implementation here
-        
-    def visualize_comparison(self, comparison_data):
-        """Create visualization of response comparisons"""
-        # Implementation here
-```
+4. **Test More Complex Scenarios**
+   - Create scenarios that highlight differences between philosophical frameworks
+   - Develop multi-stage scenarios that require extended reasoning
+   - Design scenarios with ambiguous elements to test agent reasoning
+   - Create domain-specific scenarios (healthcare, content moderation, etc.)
+
+5. **Prepare for Governance Structure Testing**
+   - Design protocols for consensus-building, voting, and adversarial debate
+   - Create evaluation metrics for different governance mechanisms
+   - Develop templates for governance structure experiments
+   - Test simple governance structures with two agents before scaling
 
 
-### Message Format Design
-Design a message format for inter-agent communication that includes:
-- Message ID
-- Sender agent
-- Recipient agent(s)
-- Message type (proposal, critique, question, response)
-- Content
-- References to previous messages
-- Reasoning trace
+## Implementation Plan
 
-### Communication Protocol
-Implement basic functions for:
-- Sending messages between agents
-- Updating conversation history
-- Formatting agent prompts with conversation context
-- Extracting structured information from responses
+For our next session, we will focus on improving agent interaction by:
 
-### Framework Adherence Metrics
+1. Updating the dialogue system to strengthen agent identity
+2. Implementing context awareness in agent prompts
+3. Creating a structured response format for better dialogue
+4. Testing the improved system with the trolley problem scenario
 
-Implementing the following metrics for each agent response:
-1. **Framework Keyword Density**: Percentage of framework-specific terms
-2. **Cross-Framework Influence**: Detection of reasoning from other frameworks
-3. **Decision Consistency**: Consistency of decisions across similar scenarios
-4. **Reasoning Structure**: Analysis of how agents structure their ethical reasoning
-5. **Framework Distinctiveness**: Quantitative measure of how distinct each agent's approach is
+We will measure success by analyzing whether:
+- Agents maintain their philosophical frameworks throughout the dialogue
+- Agents directly respond to each other's arguments
+- The conversation shows genuine philosophical debate rather than parallel monologuing
+- Each agent contributes unique insights based on their framework
 
-## Preparation for Phase 2
+Our goal is to create a genuinely interactive dialogue system that demonstrates how different philosophical frameworks approach the same ethical dilemmas, setting the foundation for more complex governance structures in later phases.
 
-Once Phase 1 is complete, we'll move to Phase 2 where we implement basic multi-agent interactions. Key preparations include:
-
-1. Creating a conversation controller that manages turn-taking between agents
-2. Implementing simple dialogue patterns like:
-   - Statement-response
-   - Proposal-critique
-   - Question-answer
-3. Developing Conversation Analysis Tools
-
-   - Create metrics for measuring interaction quality
-   - Implement tools for detecting emergent patterns
-   - Develop visualization for conversation flow
-   - Create framework for measuring agreement/disagreement
 
 
 ## Research Questions to Investigate

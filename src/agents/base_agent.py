@@ -130,7 +130,43 @@ class Agent:
             "max_new_tokens": self.max_new_tokens,
             "reasoning_window": self.reasoning_window
         }
+       
+
+    # Add this method to your existing Agent class in base_agent.py
+
+    def respond_to_message(self, message, conversation_history=None):
+        """
+        Process a message from another agent and generate a response.
         
+        This is a simple wrapper around the existing respond method,
+        adapting it for message-based communication.
+        
+        Args:
+            message: Message object to respond to
+            conversation_history: Optional list of previous messages
+            
+        Returns:
+            Dictionary with response content and metadata
+        """
+        # Format the input by combining the message content with any context
+        scenario = message.content
+        
+        # If there's a conversation history, format it for the agent
+        formatted_history = None
+        if conversation_history:
+            formatted_history = []
+            for msg in conversation_history:
+                if isinstance(msg, dict):  # Support both dict and Message objects
+                    formatted_history.append(msg)
+                else:
+                    formatted_history.append({
+                        "role": msg.sender,
+                        "content": msg.content
+                    })
+        
+        # Use the existing respond method
+        return self.respond(scenario, formatted_history)
+
         os.makedirs(path, exist_ok=True)
         with open(os.path.join(path, f"{self.name}_config.json"), "w") as f:
             json.dump(config, f, indent=2)

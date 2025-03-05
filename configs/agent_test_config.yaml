@@ -22,4 +22,4 @@ agent:
   prompt_template_path: "configs/agents/effective_altruism/prompt.txt"
 
 scenario:
-  path: "data/scenarios/trolley.txt"
+  path: "data/scenarios/trolley.txt" 
