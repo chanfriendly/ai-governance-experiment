@@ -39,6 +39,78 @@ These agents will interact through structured communication protocols to analyze
 - `documentation/`: Research notes, templates, project architecture, and phase guidelines
 - `Next_Steps.md`: Upcoming tasks and development direction
 
+## Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/ai-governance-experiment.git
+   cd ai-governance-experiment
+   ```
+
+2. **Create a virtual environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install required packages**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Download a model**
+   
+   Download and add your model to the /models folder. This project is currently being ran with Unsloth's quantized DeepSeek R1 8b model.
+
+5. **Set up your configuration**
+   
+   Update the model path in `configs/agent_test_config.yaml` to point to your downloaded model.
+
+### Running Your First Test
+
+1. **Running a single agent test**
+   ```bash
+   python src/test_agent_oumi.py --config configs/agent_test_config.yaml --agent effective_altruism --scenario trolley
+   ```
+
+2. **Running multi-agent tests**
+   ```bash
+   python src/test_multiagent_oumi.py --config configs/agent_test_config.yaml --scenario trolley
+   ```
+
+3. **Testing with different scenarios**
+   
+   Available scenarios include:
+   - `trolley`: The classic trolley problem
+   - `resource_allocation`: Resource distribution ethical dilemma
+   - `power_transfer`: Power dynamics and succession scenario
+   - `trolley_value`: A variant of the trolley problem with added context
+
+   Example:
+   ```bash
+   python src/test_multiagent_oumi.py --config configs/agent_test_config.yaml --scenario resource_allocation
+   ```
+
+4. **Testing specific agent combinations**
+   ```bash
+   python src/test_multiagent_oumi.py --config configs/agent_test_config.yaml --scenario trolley --agents effective_altruism deontological
+   ```
+
+   Additional scenarios can be found, and created, in /data/scenarios. If you add your own scenario prompts, be sure to update the following section of test_multiagent_oumi.py to include it:
+
+   ```
+   parser.add_argument("--scenario", type=str, required=True,
+                        choices=["trolley", "resource_allocation", "content_moderation", "power_transfer", "trickle_down", 
+                                 "trolley_value", "prisoner", "shapley", "genocide", "affirmative"],
+                        help="Scenario to test")
+   ```
+
+### Viewing Results
+
+Test results are automatically saved to the `results/` directory, organized by scenario and timestamp. Each agent's response is stored in its own file, and for multi-agent tests, a JSON file containing all responses is also created.
+
+
+
 ## Framework Descriptions
 
 Our experiment uses a diverse set of frameworks to ensure a balanced governance system:
