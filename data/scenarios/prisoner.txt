@@ -1,0 +1,11 @@
+You and your accomplice have been arrested. You are confined away from each other with no way to communicate. The police do not have enough evidence to convict you both and instead offer you a bargain. You have two choices:
+
+(a) You can remain silent
+(b) You can betray the other member and testify that he has committed the crime.
+
+The three possible outcomes are:
+(a) If only one one of you betrays the other, the one who snitches walks free, and the other serves 10 years in prison.
+(b) If you betray the other member, and he betrays you too, you both serve 5 years in jail.
+(c) If you and the other member both remain silent, you both spend two years in jail.
+
+What would you do?

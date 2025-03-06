@@ -28,7 +28,6 @@ var/
 
 # Models and data
 models/
-data/
 *.pt
 *.pth
 *.bin

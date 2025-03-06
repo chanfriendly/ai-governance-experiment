@@ -1,0 +1,1 @@
+A hospital has 10 ventilators but 15 patients who need them. The patients have varying ages, medical conditions, and chances of recovery. How should the hospital decide which patients receive the ventilators?

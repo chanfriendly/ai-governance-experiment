@@ -1,0 +1,7 @@
+You and three friends going into a business together making cookies. One the days you are not there, the group produces 50 fewer cookies. 
+
+Two of your friends are equal contributors, and when they are not present the group produces 25 fewer cookies for each friend (If they were both missing, then the group would produce 50 fewer cookies in total). 
+
+Finally, when the last friend is absent, the group produces the same amount of cookies they would\'ve if the friend was present. Seemingly at random, though, this last friend contributes an extra 25 cookies some days.
+
+How would you fairly distribute the profits from this business between the four of you?
