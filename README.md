@@ -50,7 +50,7 @@ We're now transitioning from Phase 1 (Agent Development and Specialization) to P
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/ai-governance-experiment.git
+   git clone https://github.com/chanfriendly/ai-governance-experiment.git
    cd ai-governance-experiment
    ```
 
