@@ -69,7 +69,20 @@ We're now transitioning from Phase 1 (Agent Development and Specialization) to P
    
    Download and add your model to the /models folder. This project is currently being ran with Unsloth's quantized DeepSeek R1 8b model.
 
-5. **Set up your configuration**
+   _Please ignore the download_model sacript for now, as it errors._
+
+   For example:
+
+
+   ```
+   mkdir -p models #Create /models folder if it does not already exist
+
+   curl -L "https://huggingface.co/TheBloke/phi-2-GGUF/resolve/main/phi-2.Q4_K_M.gguf" -o models/phi-2.Q4_K_M.gguf
+   #Download Phi-2, a small but capable model, for testing.
+   ```
+  
+
+6. **Set up your configuration**
    
    Update the model path in `configs/agent_test_config.yaml` to point to your downloaded model.
 
