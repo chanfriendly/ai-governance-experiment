@@ -1,1299 +1,1060 @@
 #!/usr/bin/env python3
 """
-Agent Response Analyzer
+Agent Response Analyzer for the AI Governance Experiment.
 
-This tool analyzes responses from different AI agents (based on different
-philosophical and governance frameworks) to understand their reasoning patterns,
-alignment, and positioning on various spectrums of thought.
+This module provides tools to analyze how different philosophical and governmental
+frameworks approach ethical scenarios, creating visualizations and metrics to help
+understand their reasoning patterns and decision-making.
 """
 
 import os
 import json
-import re
 import glob
-import time
-from collections import Counter, defaultdict
+import re
 import numpy as np
 import pandas as pd
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.pyplot as plt
 import seaborn as sns
-from nltk.sentiment import SentimentIntensityAnalyzer
-from nltk.tokenize import word_tokenize
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import spacy
-from matplotlib.colors import LinearSegmentedColormap
+from collections import Counter, defaultdict
+from datetime import datetime
 
-# Initialize NLTK resources
+# Initialize NLTK and spaCy
 try:
-    nltk.data.find('tokenizers/punkt')
-    nltk.data.find('sentiment/vader_lexicon.zip')
+    nltk.data.find('vader_lexicon')
 except LookupError:
-    nltk.download('punkt')
     nltk.download('vader_lexicon')
 
-# Initialize spaCy
 try:
-    nlp = spacy.load("en_core_web_sm")
+    nlp = spacy.load('en_core_web_sm')
 except OSError:
     print("Downloading spaCy model...")
-    os.system("python -m spacy download en_core_web_sm")
-    nlp = spacy.load("en_core_web_sm")
+    import subprocess
+    subprocess.call([sys.executable, "-m", "spacy", "download", "en_core_web_sm"])
+    nlp = spacy.load('en_core_web_sm')
 
 class AgentResponseAnalyzer:
-    """A tool for analyzing agent responses to ethical scenarios."""
+    """Analyzes responses from different agents in the AI Governance Experiment."""
+    
+    # Framework-specific terminology and concepts
+    FRAMEWORK_TERMS = {
+        "effective_altruism": [
+            "utility", "welfare", "maximize", "consequences", "outcomes", "evidence", 
+            "quantify", "impact", "future generations", "long-term", "expected value",
+            "benefit", "cost", "efficient", "tractable", "neglected", "scale"
+        ],
+        "deontological": [
+            "duty", "obligation", "principle", "universal law", "categorical imperative",
+            "dignity", "respect", "autonomy", "rights", "intentions", "means", "ends",
+            "maxim", "universalizability", "moral law", "unconditional"
+        ],
+        "care_ethics": [
+            "care", "compassion", "relationships", "connection", "context", "needs",
+            "vulnerability", "interdependence", "empathy", "nurture", "particular",
+            "concrete", "responsibility", "attentiveness", "responsiveness"
+        ],
+        "democratic_process": [
+            "participation", "vote", "consensus", "deliberation", "representation",
+            "transparency", "majority", "minority rights", "discussion", "public",
+            "citizen", "voice", "inclusion", "equality", "accountability", "procedural"
+        ],
+        "checks_and_balances": [
+            "separation", "powers", "oversight", "accountability", "veto", "review",
+            "balance", "distributed", "authority", "institutional", "constraint",
+            "procedure", "transparency", "corruption", "conflict of interest", "judicial"
+        ]
+    }
+    
+    # Moral foundation dimensions
+    MORAL_FOUNDATIONS = {
+        "care_harm": ["harm", "care", "suffering", "compassion", "cruel", "hurt", "protect"],
+        "fairness_cheating": ["fair", "unfair", "justice", "rights", "equity", "equal", "inequality"],
+        "loyalty_betrayal": ["loyal", "betray", "solidarity", "unity", "group", "collective", "community"],
+        "authority_subversion": ["authority", "obedience", "respect", "tradition", "order", "chaos", "discipline"],
+        "sanctity_degradation": ["purity", "sacred", "disgust", "dignity", "integrity", "corrupt", "defile"],
+        "liberty_oppression": ["liberty", "freedom", "oppression", "control", "autonomy", "choice", "coercion"]
+    }
+    
+    # Political dimensions terms
+    POLITICAL_DIMENSIONS = {
+        "libertarian_authoritarian": {
+            "libertarian": ["freedom", "liberty", "choice", "autonomy", "individual", "consent", "privacy"],
+            "authoritarian": ["order", "control", "authority", "collective", "obedience", "security", "structure"]
+        },
+        "progressive_conservative": {
+            "progressive": ["change", "reform", "progress", "innovation", "future", "flexibility", "adapt"],
+            "conservative": ["tradition", "stability", "preserve", "caution", "tested", "heritage", "maintain"]
+        }
+    }
+    
+    # Decision patterns to look for
+    DECISION_PATTERNS = {
+        "pull_lever": [
+            r"pull the lever",
+            r"divert the trolley",
+            r"switch the tracks",
+            r"save the five",
+            r"sacrifice the one"
+        ],
+        "dont_pull_lever": [
+            r"not pull the lever",
+            r"don't pull the lever",
+            r"should not pull",
+            r"allow the five",
+            r"avoid taking action"
+        ]
+    }
     
     def __init__(self, results_dir="results"):
-        """
-        Initialize the analyzer with framework information and load results.
-        
-        Args:
-            results_dir (str): Directory containing the result files
-        """
+        """Initialize the analyzer with the directory containing result files."""
         self.results_dir = results_dir
-        self.frameworks = [
-            "effective_altruism", 
-            "deontological", 
-            "care_ethics", 
-            "democratic_process", 
-            "checks_and_balances"
-        ]
-        
-        # Dictionary mapping agent frameworks to their key concepts
-        self.framework_keywords = {
-            "effective_altruism": [
-                "utility", "outcomes", "maximize", "consequentialist", 
-                "evidence", "calculation", "impact", "greater good", "quantify",
-                "well-being", "effectiveness", "cost-benefit", "efficiency",
-                "future generations", "long-term", "scale", "tractability"
-            ],
-            "deontological": [
-                "duty", "obligation", "rights", "universal law", "dignity", 
-                "categorical", "principle", "inherent", "moral law", "duty-based",
-                "autonomy", "respect", "intention", "universalizability", "moral worth",
-                "imperative", "never merely means"
-            ],
-            "care_ethics": [
-                "relationship", "care", "vulnerability", "context", 
-                "connection", "responsibility", "attentiveness", "compassion",
-                "nurturing", "interdependence", "emotional", "particular",
-                "concrete", "needs", "empathy", "narrative", "listening"
-            ],
-            "democratic_process": [
-                "participation", "stakeholder", "transparency", 
-                "representation", "vote", "deliberation", "consent", "citizen",
-                "public", "inclusion", "debate", "majority", "minority rights",
-                "discussion", "discourse", "equality", "voice", "assembly"
-            ],
-            "checks_and_balances": [
-                "oversight", "power", "distribution", "accountability", 
-                "authority", "procedure", "institutional", "balance", "restraint",
-                "limited", "separated", "veto", "review", "courts", "transparency",
-                "corruption", "rule of law", "constitution", "judiciary"
-            ]
-        }
-        
-        # For analyzing positioning on progressive/conservative axis
-        self.progressive_terms = [
-            "change", "reform", "progress", "equality", "diversity", 
-            "inclusion", "marginalized", "innovation", "future", "adaptation",
-            "collective", "shared", "public good", "regulation", "intervention",
-            "support", "aid", "assistance", "welfare", "protection", "equity"
-        ]
-        
-        self.conservative_terms = [
-            "tradition", "stability", "order", "preservation", "continuity", 
-            "tested", "proven", "caution", "restraint", "individual", "private",
-            "self-reliance", "autonomy", "market", "liberty", "freedom", 
-            "responsibility", "virtue", "merit", "hierarchy"
-        ]
-        
-        # For analyzing positioning on authoritarian/distributed power axis
-        self.authoritarian_terms = [
-            "central", "authority", "control", "enforce", "mandate", "require",
-            "compliance", "obedience", "order", "command", "direct", "efficiency",
-            "decisive", "strong", "firm", "leadership", "unity", "security",
-            "threat", "protection", "defense", "standard", "uniform"
-        ]
-        
-        self.distributed_power_terms = [
-            "decentralized", "diverse", "voluntary", "choice", "consensus", 
-            "dialogue", "participatory", "community", "local", "democratic", 
-            "representation", "voice", "autonomy", "self-governance", "federation",
-            "subsidiarity", "pluralism", "dissent", "deliberation", "checks"
-        ]
-        
-        # Terms indicating decision direction
-        self.decision_terms = {
-            "pull_lever": ["pull the lever", "divert the trolley", "sacrifice one", "save five", "utilitarian choice"],
-            "dont_pull": ["don't pull", "not pull", "refrain from", "against pulling", "not morally permissible"]
-        }
-        
-        # Load sentiment analyzer
-        self.sentiment_analyzer = SentimentIntensityAnalyzer()
-        
-        # Will hold all results after loading
-        self.all_results = []
         self.scenario_results = {}
-        
-        # DataFrame to store analysis results
-        self.results_df = pd.DataFrame()
-
-    def load_results(self, scenario_filter=None):
-        """
-        Load all result files from the result directory.
-        
-        Args:
-            scenario_filter (str, optional): Only load results for this scenario
-        
-        Returns:
-            dict: A dictionary of loaded results grouped by scenario
-        """
+        self.analysis_results = {}
+        self.sentiment_analyzer = SentimentIntensityAnalyzer()
+    
+    def load_results(self):
+        """Load all results from the results directory."""
         print(f"Loading results from {self.results_dir}...")
         
-        # Get all scenario directories
-        scenario_dirs = glob.glob(os.path.join(self.results_dir, "*"))
-        scenario_dirs = [d for d in scenario_dirs if os.path.isdir(d)]
-        
-        if not scenario_dirs:
-            print(f"No scenario directories found in {self.results_dir}")
-            return {}
-        
-        # Process each scenario directory
-        for scenario_dir in scenario_dirs:
-            scenario_name = os.path.basename(scenario_dir)
-            
-            # Skip if we're filtering for a specific scenario
-            if scenario_filter and scenario_filter not in scenario_name.lower():
+        # Walk through all subdirectories in the results directory
+        for root, dirs, files in os.walk(self.results_dir):
+            # Skip the root directory itself
+            if root == self.results_dir:
                 continue
-                
-            # Check for JSON results file
-            json_files = glob.glob(os.path.join(scenario_dir, "results.json"))
             
+            scenario_dir = os.path.basename(root)
+            print(f"Processing directory: {scenario_dir}")
+            
+            # Check if this is a valid scenario directory with results
+            agent_files = [f for f in files if f.endswith('.txt') and not f.startswith('scenario')]
+            json_files = [f for f in files if f.endswith('.json')]
+            
+            if not agent_files and not json_files:
+                continue
+            
+            # This appears to be a valid scenario directory
+            self.scenario_results[scenario_dir] = {
+                "agent_responses": {},
+                "metadata": {}
+            }
+            
+            # Try to load scenario file if it exists
+            scenario_file = os.path.join(root, "scenario.txt")
+            if os.path.exists(scenario_file):
+                with open(scenario_file, 'r', encoding='utf-8') as f:
+                    self.scenario_results[scenario_dir]["scenario_text"] = f.read()
+            
+            # Load individual agent response files
+            for agent_file in agent_files:
+                agent_name = os.path.splitext(agent_file)[0]
+                file_path = os.path.join(root, agent_file)
+                
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        
+                        # Try to extract response section
+                        response_section = re.search(r'RESPONSE:(.*?)$', content, re.DOTALL)
+                        if response_section:
+                            response_text = response_section.group(1).strip()
+                        else:
+                            # If there's no RESPONSE: marker, use the whole file
+                            response_text = content
+                        
+                        self.scenario_results[scenario_dir]["agent_responses"][agent_name] = response_text
+                except Exception as e:
+                    print(f"Error reading {file_path}: {e}")
+            
+            # Load JSON results file if it exists
             if json_files:
-                # We have a JSON results file
-                with open(json_files[0], 'r') as f:
-                    scenario_data = json.load(f)
-                    
-                # Extract the scenario from the results
-                scenario_text = scenario_data.get("scenario_text", "")
-                
-                # Create an entry for this scenario
-                if scenario_name not in self.scenario_results:
-                    self.scenario_results[scenario_name] = {
-                        "scenario_text": scenario_text,
-                        "runs": []
-                    }
-                
-                # Add this run to the scenario
-                run_data = {
-                    "run_id": os.path.basename(scenario_dir),
-                    "agent_responses": {}
-                }
-                
-                # Extract agent responses
-                for result in scenario_data.get("results", []):
-                    agent_name = result.get("agent", "")
-                    response = result.get("response", "")
-                    run_data["agent_responses"][agent_name] = response
-                
-                self.scenario_results[scenario_name]["runs"].append(run_data)
-                self.all_results.append(scenario_data)
-            else:
-                # Individual text files for each agent
-                print(f"Processing directory: {scenario_dir}")
-                agent_files = glob.glob(os.path.join(scenario_dir, "*.txt"))
-                
-                if not agent_files:
-                    print(f"No agent response files found in {scenario_dir}")
-                    continue
-                
-                # Read the scenario.txt file if it exists
-                scenario_file = os.path.join(scenario_dir, "scenario.txt")
-                scenario_text = ""
-                if os.path.exists(scenario_file):
-                    with open(scenario_file, 'r') as f:
-                        scenario_text = f.read()
-                
-                # Create an entry for this scenario
-                if scenario_name not in self.scenario_results:
-                    self.scenario_results[scenario_name] = {
-                        "scenario_text": scenario_text,
-                        "runs": []
-                    }
-                
-                # Create a run for this directory
-                run_data = {
-                    "run_id": os.path.basename(scenario_dir),
-                    "agent_responses": {}
-                }
-                
-                # Load each agent response
-                for agent_file in agent_files:
-                    agent_name = os.path.splitext(os.path.basename(agent_file))[0]
-                    
-                    # Skip non-agent files
-                    if agent_name.lower() == "scenario":
-                        continue
-                    
-                    with open(agent_file, 'r') as f:
-                        response = f.read()
-                    
-                    # Extract the actual response content (after the metadata)
-                    response_parts = response.split("RESPONSE:")
-                    if len(response_parts) > 1:
-                        response = response_parts[1].strip()
-                    
-                    run_data["agent_responses"][agent_name] = response
-                
-                self.scenario_results[scenario_name]["runs"].append(run_data)
+                json_path = os.path.join(root, json_files[0])
+                try:
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        metadata = json.load(f)
+                        self.scenario_results[scenario_dir]["metadata"] = metadata
+                except Exception as e:
+                    print(f"Error reading {json_path}: {e}")
         
         print(f"Loaded results for {len(self.scenario_results)} scenarios")
-        return self.scenario_results
-
-    def extract_key_concepts(self, text):
-        """
-        Extract key concepts and themes from text.
-        
-        Args:
-            text (str): The text to analyze
-            
-        Returns:
-            dict: Dictionary with key concepts and their counts
-        """
-        # Process with spaCy
-        doc = nlp(text)
-        
-        # Extract entities, noun phrases, and important keywords
-        entities = [ent.text.lower() for ent in doc.ents]
-        noun_phrases = [chunk.text.lower() for chunk in doc.noun_chunks]
-        
-        # Extract important words (nouns, verbs, adjectives)
-        important_words = [token.lemma_.lower() for token in doc 
-                          if token.pos_ in ('NOUN', 'VERB', 'ADJ') 
-                          and not token.is_stop
-                          and len(token.text) > 1]
-        
-        # Count occurrences
-        concept_counts = Counter(entities + noun_phrases + important_words)
-        
-        return dict(concept_counts.most_common(20))
-
-    def analyze_framework_adherence(self, agent_name, text):
-        """
-        Analyze how well a response adheres to its framework.
-        
-        Args:
-            agent_name (str): The name of the agent/framework
-            text (str): The agent's response text
-            
-        Returns:
-            dict: Metrics on framework adherence
-        """
-        # Get the keywords for this framework
-        if agent_name in self.framework_keywords:
-            framework_terms = self.framework_keywords[agent_name]
-        else:
-            # Try to match partial name
-            for framework in self.framework_keywords:
-                if framework in agent_name:
-                    framework_terms = self.framework_keywords[framework]
-                    break
-            else:
-                print(f"Warning: No framework terms found for agent {agent_name}")
-                return {"adherence_score": 0, "keyword_matches": {}}
-        
-        # Count framework-specific terms
-        text_lower = text.lower()
-        keyword_counts = {}
-        
-        for term in framework_terms:
-            count = text_lower.count(term)
-            if count > 0:
-                keyword_counts[term] = count
-        
-        # Calculate adherence score (percentage of framework terms used)
-        total_possible = len(framework_terms)
-        terms_used = len(keyword_counts)
-        adherence_score = (terms_used / total_possible) * 100
-        
-        # Also check for cross-framework influence
-        cross_framework = {}
-        for framework, terms in self.framework_keywords.items():
-            if framework != agent_name and framework not in agent_name:
-                matches = sum(1 for term in terms if text_lower.count(term) > 0)
-                if matches > 0:
-                    cross_framework[framework] = (matches / len(terms)) * 100
-        
-        return {
-            "adherence_score": adherence_score,
-            "keyword_matches": keyword_counts,
-            "cross_framework_influence": cross_framework
-        }
-
-    def measure_alignment(self, responses, method="tfidf"):
-        """
-        Measure how aligned different agent responses are.
-        
-        Args:
-            responses (dict): Dictionary of agent responses
-            method (str): Method to use for measuring alignment
-                          (options: "tfidf", "count", "decision")
-            
-        Returns:
-            dict: Alignment scores between agents
-        """
-        agents = list(responses.keys())
-        texts = [responses[agent] for agent in agents]
-        
-        if not texts or not agents:
-            return {}
-        
-        if method == "tfidf":
-            # TF-IDF based similarity
-            vectorizer = TfidfVectorizer(stop_words='english')
-            try:
-                tfidf_matrix = vectorizer.fit_transform(texts)
-                similarity_matrix = cosine_similarity(tfidf_matrix)
-            except ValueError as e:
-                print(f"Error calculating TF-IDF: {e}")
-                return {}
-                
-        elif method == "count":
-            # Simple count-based similarity
-            vectorizer = CountVectorizer(stop_words='english')
-            try:
-                count_matrix = vectorizer.fit_transform(texts)
-                similarity_matrix = cosine_similarity(count_matrix)
-            except ValueError as e:
-                print(f"Error calculating count vectors: {e}")
-                return {}
-                
-        elif method == "decision":
-            # Decision-based alignment
-            # This is a simpler approach focused just on the final decision
-            decisions = {}
-            for agent, text in responses.items():
-                # For trolley problem
-                pull_count = sum(text.lower().count(term) for term in self.decision_terms["pull_lever"])
-                dont_pull_count = sum(text.lower().count(term) for term in self.decision_terms["dont_pull"])
-                
-                if pull_count > dont_pull_count:
-                    decisions[agent] = "pull"
-                elif dont_pull_count > pull_count:
-                    decisions[agent] = "dont_pull"
-                else:
-                    decisions[agent] = "unclear"
-            
-            # Calculate a simple alignment matrix
-            similarity_matrix = np.zeros((len(agents), len(agents)))
-            for i, agent1 in enumerate(agents):
-                for j, agent2 in enumerate(agents):
-                    if decisions[agent1] == decisions[agent2]:
-                        similarity_matrix[i, j] = 1.0
-                    else:
-                        similarity_matrix[i, j] = 0.0
-        else:
-            print(f"Unknown alignment method: {method}")
-            return {}
-        
-        # Create a dictionary of alignment scores
-        alignment_scores = {}
-        for i, agent1 in enumerate(agents):
-            alignment_scores[agent1] = {}
-            for j, agent2 in enumerate(agents):
-                if i != j:  # Skip self-comparison
-                    alignment_scores[agent1][agent2] = similarity_matrix[i, j]
-        
-        return alignment_scores
-
-    def analyze_political_positioning(self, text):
-        """
-        Analyze where a response falls on progressive/conservative and
-        authoritarian/distributed power axes.
-        
-        Args:
-            text (str): The text to analyze
-            
-        Returns:
-            dict: Scores on both axes
-        """
-        text_lower = text.lower()
-        
-        # Count term occurrences on both axes
-        prog_count = sum(text_lower.count(term) for term in self.progressive_terms)
-        cons_count = sum(text_lower.count(term) for term in self.conservative_terms)
-        auth_count = sum(text_lower.count(term) for term in self.authoritarian_terms)
-        dist_count = sum(text_lower.count(term) for term in self.distributed_power_terms)
-        
-        # Calculate the relative positions on each axis
-        # Scale from -1 to 1, where:
-        # -1 = conservative or authoritarian
-        # 1 = progressive or distributed power
-        
-        # Avoid division by zero
-        prog_cons_total = prog_count + cons_count
-        auth_dist_total = auth_count + dist_count
-        
-        if prog_cons_total > 0:
-            prog_cons_score = (prog_count - cons_count) / prog_cons_total
-        else:
-            prog_cons_score = 0
-            
-        if auth_dist_total > 0:
-            auth_dist_score = (dist_count - auth_count) / auth_dist_total
-        else:
-            auth_dist_score = 0
-        
-        # Sentiment analysis can also inform positioning
-        sentiment = self.sentiment_analyzer.polarity_scores(text)
-        
-        return {
-            "progressive_conservative": prog_cons_score,
-            "authoritarian_distributed": auth_dist_score,
-            "progressive_terms": prog_count,
-            "conservative_terms": cons_count,
-            "authoritarian_terms": auth_count,
-            "distributed_terms": dist_count,
-            "sentiment": sentiment
-        }
-
-    def extract_decision(self, text, scenario_type=None):
-        """
-        Extract the final decision or recommendation from a response.
-        
-        Args:
-            text (str): The agent's response
-            scenario_type (str, optional): Type of scenario for specialized extraction
-            
-        Returns:
-            str: The extracted decision
-        """
-        # Look for common concluding phrases
-        conclusion_markers = [
-            "conclusion", "therefore", "thus", "in summary", "ultimately",
-            "to conclude", "in conclusion", "my recommendation", "my analysis",
-            "my decision", "final decision", "I would recommend", "I recommend"
-        ]
-        
-        # Try to find a conclusion paragraph
-        paragraphs = text.split('\n\n')
-        
-        # Check if any conclusion markers are in the last 3 paragraphs
-        for paragraph in paragraphs[-3:]:
-            for marker in conclusion_markers:
-                if marker.lower() in paragraph.lower():
-                    return paragraph.strip()
-        
-        # If no markers found, just take the last paragraph
-        if paragraphs:
-            return paragraphs[-1].strip()
-        
-        return "No clear decision found"
-
+        return len(self.scenario_results) > 0
+    
     def run_analysis(self, scenario_filter=None):
         """
-        Run comprehensive analysis on all loaded results.
+        Run a comprehensive analysis on all loaded results.
         
         Args:
-            scenario_filter (str, optional): Only analyze results for this scenario
-            
-        Returns:
-            pandas.DataFrame: DataFrame with analysis results
+            scenario_filter: If provided, only analyze this specific scenario
         """
         print("Running comprehensive analysis...")
         
-        # Load results if not already loaded
-        if not self.scenario_results:
-            self.load_results(scenario_filter)
+        # Filter scenarios if requested
+        scenarios = [scenario_filter] if scenario_filter else list(self.scenario_results.keys())
+        if scenario_filter and scenario_filter not in self.scenario_results:
+            print(f"Scenario '{scenario_filter}' not found in results.")
+            return False
         
-        if not self.scenario_results:
-            print("No results to analyze")
-            return pd.DataFrame()
+        # Initialize analysis results
+        self.analysis_results = {}
         
-        # Prepare data structure for analysis results
-        analysis_results = []
-        
-        # Analyze each scenario and run
-        for scenario_name, scenario_data in self.scenario_results.items():
-            scenario_text = scenario_data.get("scenario_text", "")
+        # Process each scenario
+        for scenario in scenarios:
+            self.analysis_results[scenario] = {}
             
-            for run in scenario_data.get("runs", []):
-                run_id = run.get("run_id", "")
-                agent_responses = run.get("agent_responses", {})
-                
-                # Calculate alignment between agents
-                alignment_scores = self.measure_alignment(agent_responses, method="tfidf")
-                decision_alignment = self.measure_alignment(agent_responses, method="decision")
-                
-                # Analyze each agent's response
-                for agent_name, response_text in agent_responses.items():
-                    # Skip non-agent responses
-                    if agent_name.lower() == "scenario":
-                        continue
-                        
-                    # Extract key concepts
-                    key_concepts = self.extract_key_concepts(response_text)
-                    
-                    # Analyze framework adherence
-                    framework_analysis = self.analyze_framework_adherence(agent_name, response_text)
-                    
-                    # Analyze political positioning
-                    positioning = self.analyze_political_positioning(response_text)
-                    
-                    # Extract decision
-                    decision = self.extract_decision(response_text)
-                    
-                    # Add result to analysis results
-                    result = {
-                        "scenario": scenario_name,
-                        "run_id": run_id,
-                        "agent": agent_name,
-                        "prog_cons_score": positioning["progressive_conservative"],
-                        "auth_dist_score": positioning["authoritarian_distributed"],
-                        "framework_adherence": framework_analysis["adherence_score"],
-                        "decision": decision,
-                        "response_text": response_text,
-                        "key_concepts": key_concepts,
-                        "framework_matches": framework_analysis["keyword_matches"],
-                        "cross_framework": framework_analysis["cross_framework_influence"],
-                        "sentiment_compound": positioning["sentiment"]["compound"]
-                    }
-                    
-                    # Add alignment scores
-                    if agent_name in alignment_scores:
-                        for other_agent, score in alignment_scores[agent_name].items():
-                            result[f"align_{other_agent}"] = score
-                    
-                    # Add decision alignment
-                    if agent_name in decision_alignment:
-                        for other_agent, score in decision_alignment[agent_name].items():
-                            result[f"decision_align_{other_agent}"] = score
-                    
-                    analysis_results.append(result)
+            # Load responses for this scenario
+            responses = self.scenario_results[scenario]["agent_responses"]
+            
+            # Skip scenarios with no responses
+            if not responses:
+                continue
+            
+            # Run various analyses
+            framework_analysis = self._analyze_framework_adherence(responses)
+            sentiment_analysis = self._analyze_sentiment(responses)
+            decision_analysis = self._analyze_decisions(responses, scenario)
+            moral_foundation_analysis = self._analyze_moral_foundations(responses)
+            political_dimension_analysis = self._analyze_political_dimensions(responses)
+            
+            # Store analysis results
+            self.analysis_results[scenario] = {
+                "framework_adherence": framework_analysis["framework_adherence"],
+                "cross_framework_influence": framework_analysis.get("cross_framework_influence", {}),
+                "sentiment": sentiment_analysis,
+                "decisions": decision_analysis,
+                "moral_foundations": moral_foundation_analysis,
+                "political_dimensions": political_dimension_analysis
+            }
         
-        # Convert to DataFrame
-        self.results_df = pd.DataFrame(analysis_results)
-        print(f"Analysis complete: {len(self.results_df)} agent responses analyzed")
-        
-        return self.results_df
-
-    def plot_alignment_matrix(self, scenario=None, method="tfidf"):
+        return True
+    
+    def _analyze_framework_adherence(self, responses):
         """
-        Plot a matrix showing alignment between different agents.
+        Analyze how well each agent adheres to its expected framework.
         
         Args:
-            scenario (str, optional): Focus on a specific scenario
-            method (str): Method to use for measuring alignment
+            responses: Dictionary of agent responses
             
         Returns:
-            matplotlib.figure.Figure: The generated figure
+            Dictionary with framework adherence scores and cross-framework influence
         """
-        if self.results_df.empty:
-            print("No analysis results available. Run analysis first.")
-            return None
+        results = {
+            "framework_adherence": {},
+            "cross_framework_influence": {}
+        }
         
-        # Filter for the specified scenario if provided
-        if scenario:
-            scenario_df = self.results_df[self.results_df['scenario'].str.contains(scenario, case=False)]
-            if scenario_df.empty:
-                print(f"No data for scenario: {scenario}")
-                return None
-        else:
-            # Use all data but take the first run of each scenario
-            scenario_df = self.results_df.drop_duplicates(subset=['scenario', 'agent'])
+        # For each agent, calculate adherence to expected framework
+        for agent, response in responses.items():
+            if not response:
+                continue
+                
+            # Determine expected framework from agent name
+            expected_framework = None
+            for framework in self.FRAMEWORK_TERMS.keys():
+                if framework in agent:
+                    expected_framework = framework
+                    break
+            
+            # If we couldn't determine the framework, use agent name directly
+            if not expected_framework:
+                expected_framework = agent
+            
+            # Count occurrences of framework-specific terms
+            framework_counts = {}
+            for framework, terms in self.FRAMEWORK_TERMS.items():
+                count = sum(1 for term in terms if re.search(r'\b' + re.escape(term.lower()) + r'\b', response.lower()))
+                framework_counts[framework] = count
+            
+            # Calculate adherence as normalized counts
+            total_framework_terms = sum(framework_counts.values())
+            if total_framework_terms > 0:
+                adherence_scores = {framework: count / total_framework_terms for framework, count in framework_counts.items()}
+            else:
+                adherence_scores = {framework: 0 for framework in framework_counts}
+            
+            # Store results
+            results["framework_adherence"][agent] = adherence_scores
+            
+            # Calculate cross-framework influence (% of terms from other frameworks)
+            if expected_framework in adherence_scores and adherence_scores[expected_framework] > 0:
+                other_frameworks = {f: s for f, s in adherence_scores.items() if f != expected_framework}
+                results["cross_framework_influence"][agent] = other_frameworks
+            else:
+                print(f"Warning: No framework terms found for agent {agent}")
+                results["cross_framework_influence"][agent] = {f: 0 for f in self.FRAMEWORK_TERMS if f != expected_framework}
         
-        # Get unique agents
-        agents = scenario_df['agent'].unique()
+        return results
+    
+    def _analyze_sentiment(self, responses):
+        """
+        Analyze sentiment of each agent's response.
         
-        # Create empty alignment matrix
-        alignment_matrix = np.zeros((len(agents), len(agents)))
+        Args:
+            responses: Dictionary of agent responses
+            
+        Returns:
+            Dictionary with sentiment scores
+        """
+        results = {}
         
-        # Fill the matrix
-        for i, agent1 in enumerate(agents):
-            for j, agent2 in enumerate(agents):
-                if i == j:
-                    # Perfect alignment with self
-                    alignment_matrix[i, j] = 1.0
+        for agent, response in responses.items():
+            if not response:
+                continue
+                
+            # Get sentiment scores using VADER
+            sentiment = self.sentiment_analyzer.polarity_scores(response)
+            
+            results[agent] = {
+                "compound": sentiment["compound"],
+                "positive": sentiment["pos"],
+                "negative": sentiment["neg"],
+                "neutral": sentiment["neu"]
+            }
+            
+        return results
+    
+    def _analyze_decisions(self, responses, scenario):
+        """
+        Analyze decision patterns in responses based on the scenario.
+        
+        Args:
+            responses: Dictionary of agent responses
+            scenario: Name of the scenario
+            
+        Returns:
+            Dictionary with decision analysis
+        """
+        results = {"raw_decisions": {}, "categories": {}}
+        
+        # For the trolley problem, identify if they chose to pull the lever
+        if "trolley" in scenario.lower():
+            for agent, response in responses.items():
+                if not response:
+                    continue
+                    
+                # Look for decision patterns
+                pull_lever = any(re.search(pattern, response.lower()) for pattern in self.DECISION_PATTERNS["pull_lever"])
+                dont_pull = any(re.search(pattern, response.lower()) for pattern in self.DECISION_PATTERNS["dont_pull_lever"])
+                
+                if pull_lever and not dont_pull:
+                    decision = "pull"
+                elif dont_pull and not pull_lever:
+                    decision = "dont_pull"
                 else:
-                    # Get the alignment score column
-                    align_col = f"align_{agent2}"
-                    if align_col in scenario_df.columns:
-                        # Get records for agent1
-                        agent1_records = scenario_df[scenario_df['agent'] == agent1]
-                        if not agent1_records.empty and align_col in agent1_records:
-                            alignment_matrix[i, j] = agent1_records[align_col].mean()
+                    # Look for more evidence if both or neither were found
+                    pull_count = sum(1 for pattern in self.DECISION_PATTERNS["pull_lever"] 
+                                     if re.search(pattern, response.lower()))
+                    dont_count = sum(1 for pattern in self.DECISION_PATTERNS["dont_pull_lever"] 
+                                     if re.search(pattern, response.lower()))
+                    
+                    if pull_count > dont_count:
+                        decision = "pull"
+                    elif dont_count > pull_count:
+                        decision = "dont_pull"
+                    else:
+                        decision = "ambiguous"
+                
+                results["raw_decisions"][agent] = decision
+            
+            # Categorize results
+            pull_count = sum(1 for d in results["raw_decisions"].values() if d == "pull")
+            dont_pull_count = sum(1 for d in results["raw_decisions"].values() if d == "dont_pull")
+            ambiguous_count = sum(1 for d in results["raw_decisions"].values() if d == "ambiguous")
+            
+            results["categories"] = {
+                "pull": pull_count,
+                "dont_pull": dont_pull_count,
+                "ambiguous": ambiguous_count
+            }
         
-        # Create the heatmap
-        plt.figure(figsize=(10, 8))
-        ax = sns.heatmap(
-            alignment_matrix, 
-            annot=True, 
-            xticklabels=agents,
-            yticklabels=agents,
-            cmap="YlGnBu",
-            vmin=0,
-            vmax=1
-        )
+        return results
+    
+    def _analyze_moral_foundations(self, responses):
+        """
+        Analyze responses through the lens of moral foundations theory.
         
-        # Set title and labels
-        title = f"Agent Alignment Matrix ({method.upper()} similarity)"
-        if scenario:
-            title += f" - {scenario}"
-        plt.title(title, fontsize=15)
-        plt.xlabel("Agent", fontsize=12)
-        plt.ylabel("Agent", fontsize=12)
+        Args:
+            responses: Dictionary of agent responses
+            
+        Returns:
+            Dictionary with moral foundation scores for each agent
+        """
+        results = {}
         
-        # Rotate x-axis labels for better readability
-        plt.xticks(rotation=45, ha='right')
-        plt.tight_layout()
+        for agent, response in responses.items():
+            if not response:
+                continue
+                
+            # Count occurrences of moral foundation terms
+            foundation_scores = {}
+            for foundation, terms in self.MORAL_FOUNDATIONS.items():
+                count = sum(1 for term in terms if re.search(r'\b' + re.escape(term.lower()) + r'\b', response.lower()))
+                foundation_scores[foundation] = count
+            
+            # Normalize scores
+            total = sum(foundation_scores.values())
+            if total > 0:
+                foundation_scores = {f: s/total for f, s in foundation_scores.items()}
+            
+            results[agent] = foundation_scores
+            
+        return results
+    
+    def _analyze_political_dimensions(self, responses):
+        """
+        Analyze responses on political dimensions.
         
-        return plt.gcf()
-
+        Args:
+            responses: Dictionary of agent responses
+            
+        Returns:
+            Dictionary with political dimension scores
+        """
+        results = {}
+        
+        for agent, response in responses.items():
+            if not response:
+                continue
+                
+            # Calculate scores for each dimension
+            dimension_scores = {}
+            
+            for dimension, poles in self.POLITICAL_DIMENSIONS.items():
+                pole1, pole2 = list(poles.keys())
+                terms1, terms2 = poles[pole1], poles[pole2]
+                
+                count1 = sum(1 for term in terms1 if re.search(r'\b' + re.escape(term.lower()) + r'\b', response.lower()))
+                count2 = sum(1 for term in terms2 if re.search(r'\b' + re.escape(term.lower()) + r'\b', response.lower()))
+                
+                # Calculate a normalized position between -1 and 1
+                if count1 + count2 > 0:
+                    position = (count1 - count2) / (count1 + count2)
+                else:
+                    position = 0
+                
+                dimension_scores[dimension] = position
+            
+            results[agent] = dimension_scores
+            
+        return results
+    
+    def plot_framework_adherence(self, scenario=None):
+        """
+        Plot how well each agent adheres to different frameworks.
+        
+        Args:
+            scenario: Name of specific scenario to plot (None for all)
+        """
+        if not self.analysis_results:
+            print("No analysis results available. Run analysis first.")
+            return
+        
+        # Get scenarios to plot
+        scenarios = [scenario] if scenario else list(self.analysis_results.keys())
+        if scenario and scenario not in self.analysis_results:
+            print(f"Scenario '{scenario}' not found in analysis results.")
+            return
+        
+        # For each scenario, create a grouped bar chart
+        for s in scenarios:
+            if "framework_adherence" not in self.analysis_results[s]:
+                continue
+                
+            adherence = self.analysis_results[s]["framework_adherence"]
+            if not adherence:
+                continue
+            
+            # Convert data to DataFrame for easier plotting
+            data = []
+            for agent, scores in adherence.items():
+                for framework, score in scores.items():
+                    data.append({
+                        "Agent": agent,
+                        "Framework": framework,
+                        "Adherence Score": score
+                    })
+            
+            df = pd.DataFrame(data)
+            
+            # Plot
+            plt.figure(figsize=(12, 8))
+            ax = sns.barplot(x="Agent", y="Adherence Score", hue="Framework", data=df)
+            plt.title(f"Framework Adherence by Agent: {s}", fontsize=14)
+            plt.xlabel("Agent", fontsize=12)
+            plt.ylabel("Adherence Score (normalized)", fontsize=12)
+            plt.xticks(rotation=45, ha='right')
+            plt.legend(title="Framework", bbox_to_anchor=(1.05, 1), loc='upper left')
+            plt.tight_layout()
+            
+            return plt.gcf()  # Return the figure for saving
+    
     def plot_political_compass(self, scenario=None):
         """
         Plot agents on a political compass based on their responses.
         
         Args:
-            scenario (str, optional): Focus on a specific scenario
-            
-        Returns:
-            matplotlib.figure.Figure: The generated figure
+            scenario: Name of specific scenario to plot (None for all)
         """
-        if self.results_df.empty:
+        if not self.analysis_results:
             print("No analysis results available. Run analysis first.")
-            return None
+            return
         
-        # Filter for the specified scenario if provided
-        if scenario:
-            scenario_df = self.results_df[self.results_df['scenario'].str.contains(scenario, case=False)]
-            if scenario_df.empty:
-                print(f"No data for scenario: {scenario}")
-                return None
-        else:
-            # Use all data
-            scenario_df = self.results_df
+        # Get scenarios to plot
+        scenarios = [scenario] if scenario else list(self.analysis_results.keys())
+        if scenario and scenario not in self.analysis_results:
+            print(f"Scenario '{scenario}' not found in analysis results.")
+            return
         
-        # Create a figure
-        plt.figure(figsize=(12, 10))
-        
-        # Create a custom colormap for different agents
-        agent_colors = {
-            "effective_altruism": "#FF5733",  # Orange
-            "deontological": "#33FF57",      # Green
-            "care_ethics": "#3357FF",        # Blue
-            "democratic_process": "#FF33A8",  # Pink
-            "checks_and_balances": "#33A8FF"  # Light Blue
-        }
-        
-        # Map for short names on the plot
-        agent_short_names = {
-            "effective_altruism": "Effective Altruism",
-            "deontological": "Deontological",
-            "care_ethics": "Care Ethics",
-            "democratic_process": "Democratic",
-            "checks_and_balances": "Checks & Balances"
-        }
-        
-        # Create scatter plot
-        # First clean up agent names to group them properly
-
-        agent_groups = {}
-        for agent in scenario_df['agent'].unique():
-            base_name = agent.replace('_response', '')
-            if base_name not in agent_groups:
-                agent_groups[base_name] = []
-            agent_groups[base_name].append(agent)
-
-        # Now plot each base agent type with a single legend entry
-        for base_agent, agent_list in agent_groups.items():
-            # Get the color for this agent
-            color = agent_colors.get(base_agent, "#888888")  # Default gray
+        # For each scenario, create a political compass plot
+        for s in scenarios:
+            if "political_dimensions" not in self.analysis_results[s]:
+                continue
+                
+            dimensions = self.analysis_results[s]["political_dimensions"]
+            if not dimensions:
+                continue
             
-            # Get the short name for this agent
-            short_name = agent_short_names.get(base_agent, base_agent)
+            # Extract x and y coordinates for each agent
+            x_coords = {}  # Progressive (left) vs Conservative (right)
+            y_coords = {}  # Libertarian (top) vs Authoritarian (bottom)
             
-            # Plot the first one with a label (for legend)
-            first_agent = True
-            for agent in agent_list:
-                agent_data = scenario_df[scenario_df['agent'] == agent]
-                plt.scatter(
-                    agent_data['prog_cons_score'], 
-                    agent_data['auth_dist_score'],
-                    color=color,
-                    s=100,
-                    alpha=0.7,
-                    label=short_name if first_agent else None  # Only add to legend once
-                )
-                first_agent = False
-        
-        # Add quadrant labels
-        plt.text(0.85, 0.85, "Progressive\nDistributed Power", 
-                 ha='center', va='center', fontsize=12, 
-                 bbox=dict(facecolor='white', alpha=0.5))
-        
-        plt.text(-0.85, 0.85, "Conservative\nDistributed Power", 
-                 ha='center', va='center', fontsize=12,
-                 bbox=dict(facecolor='white', alpha=0.5))
-        
-        plt.text(0.85, -0.85, "Progressive\nAuthoritarian", 
-                 ha='center', va='center', fontsize=12,
-                 bbox=dict(facecolor='white', alpha=0.5))
-        
-        plt.text(-0.85, -0.85, "Conservative\nAuthoritarian", 
-                 ha='center', va='center', fontsize=12,
-                 bbox=dict(facecolor='white', alpha=0.5))
-        
-        # Add grid lines
-        plt.axhline(y=0, color='gray', linestyle='-', alpha=0.3)
-        plt.axvline(x=0, color='gray', linestyle='-', alpha=0.3)
-        
-        # Set limits, labels, and title
-        plt.xlim(-1.1, 1.1)
-        plt.ylim(-1.1, 1.1)
-        plt.xlabel("Progressive (1.0) vs Conservative (-1.0)", fontsize=14)
-        plt.ylabel("Distributed Power (1.0) vs Authoritarian (-1.0)", fontsize=14)
-        
-        title = "Political Compass of Agent Responses"
-        if scenario:
-            title += f" - {scenario}"
-        plt.title(title, fontsize=16)
-        
-        # Add legend
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
-                  ncol=3, fontsize=12)
-        
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
-        
-        return plt.gcf()
-
-    def plot_framework_adherence(self, scenario=None):
-        """
-        Plot how well each agent adheres to its framework.
-        
-        Args:
-            scenario (str, optional): Focus on a specific scenario
+            for agent, scores in dimensions.items():
+                if "progressive_conservative" in scores:
+                    # Flip sign so progressive is negative (left), conservative is positive (right)
+                    x_coords[agent] = scores["progressive_conservative"]
+                
+                if "libertarian_authoritarian" in scores:
+                    # Negate so libertarian is positive (top), authoritarian is negative (bottom)
+                    y_coords[agent] = -scores["libertarian_authoritarian"]
             
-        Returns:
-            matplotlib.figure.Figure: The generated figure
-        """
-        if self.results_df.empty:
-            print("No analysis results available. Run analysis first.")
-            return None
-        
-        # Filter for the specified scenario if provided
-        if scenario:
-            scenario_df = self.results_df[self.results_df['scenario'].str.contains(scenario, case=False)]
-            if scenario_df.empty:
-                print(f"No data for scenario: {scenario}")
-                return None
-        else:
-            # Use all data
-            scenario_df = self.results_df
-        
-        # Group by agent and calculate mean adherence
-        adherence_data = scenario_df.groupby('agent')['framework_adherence'].mean().reset_index()
-        
-        # Create the bar chart
-        plt.figure(figsize=(12, 6))
-        ax = sns.barplot(x='agent', y='framework_adherence', data=adherence_data)
-        
-        # Add value labels on top of bars
-        for i, v in enumerate(adherence_data['framework_adherence']):
-            ax.text(i, v + 1, f"{v:.1f}%", ha='center', fontsize=10)
-        
-        # Set title and labels
-        title = "Framework Adherence by Agent"
-        if scenario:
-            title += f" - {scenario}"
-        plt.title(title, fontsize=15)
-        plt.xlabel("Agent", fontsize=12)
-        plt.ylabel("Framework Adherence Score (%)", fontsize=12)
-        
-        # Rotate x-axis labels for better readability
-        plt.xticks(rotation=45, ha='right')
-        plt.ylim(0, 100)  # Set y-axis from 0 to 100%
-        plt.tight_layout()
-        
-        return plt.gcf()
-
+            # Create plot
+            plt.figure(figsize=(10, 10))
+            
+            # Draw quadrant lines
+            plt.axhline(y=0, color='black', linestyle='-', alpha=0.3)
+            plt.axvline(x=0, color='black', linestyle='-', alpha=0.3)
+            
+            # Label quadrants
+            plt.text(-0.9, 0.9, "Progressive\nLibertarian", ha='center', fontsize=12)
+            plt.text(0.9, 0.9, "Conservative\nLibertarian", ha='center', fontsize=12)
+            plt.text(-0.9, -0.9, "Progressive\nAuthoritarian", ha='center', fontsize=12)
+            plt.text(0.9, -0.9, "Conservative\nAuthoritarian", ha='center', fontsize=12)
+            
+            # Plot each agent
+            for agent in x_coords:
+                if agent in y_coords:
+                    plt.scatter(x_coords[agent], y_coords[agent], s=100, label=agent)
+                    plt.text(x_coords[agent]+0.05, y_coords[agent]+0.05, agent, fontsize=10)
+            
+            plt.xlim(-1.1, 1.1)
+            plt.ylim(-1.1, 1.1)
+            plt.title(f"Political Compass: {s}", fontsize=14)
+            plt.xlabel("Progressive (-1) to Conservative (+1)", fontsize=12)
+            plt.ylabel("Authoritarian (-1) to Libertarian (+1)", fontsize=12)
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+            
+            return plt.gcf()  # Return the figure for saving
+    
     def plot_cross_framework_influence(self, scenario=None):
         """
-        Plot how much each framework influences others.
+        Plot how much each agent is influenced by other frameworks.
         
         Args:
-            scenario (str, optional): Focus on a specific scenario
-            
-        Returns:
-            matplotlib.figure.Figure: The generated figure
+            scenario: Name of specific scenario to plot (None for all)
         """
-        if self.results_df.empty:
+        if not self.analysis_results:
             print("No analysis results available. Run analysis first.")
-            return None
+            return
         
-        # Filter for the specified scenario if provided
-        if scenario:
-            scenario_df = self.results_df[self.results_df['scenario'].str.contains(scenario, case=False)]
-            if scenario_df.empty:
-                print(f"No data for scenario: {scenario}")
-                return None
-        else:
-            # Use all data
-            scenario_df = self.results_df
+        # Get scenarios to plot
+        scenarios = [scenario] if scenario else list(self.analysis_results.keys())
+        if scenario and scenario not in self.analysis_results:
+            print(f"Scenario '{scenario}' not found in analysis results.")
+            return
         
-        # Create an influence matrix
-        agents = scenario_df['agent'].unique()
-        influence_matrix = np.zeros((len(agents), len(agents)))
-        
-        # Fill the matrix with cross-framework influence scores
-        for i, agent in enumerate(agents):
-            agent_data = scenario_df[scenario_df['agent'] == agent]
-            
-            # Get all cross-framework influences
-            for row_idx, row in agent_data.iterrows():
-                cross_framework = row.get('cross_framework', {})
-                if isinstance(cross_framework, dict):
-                    for influenced_by, score in cross_framework.items():
-                        # Find the index of the influencing framework
-                        for j, potential_influencer in enumerate(agents):
-                            if influenced_by in potential_influencer:
-                                influence_matrix[i, j] += score / len(agent_data)
+        # For each scenario, create a heatmap
+        for s in scenarios:
+            if "cross_framework_influence" not in self.analysis_results[s]:
+                # Initialize cross-framework influence if it doesn't exist
+                if "framework_adherence" in self.analysis_results[s]:
+                    adherence = self.analysis_results[s]["framework_adherence"]
+                    cross_influence = {}
+                    
+                    # Calculate cross-framework influence manually
+                    for agent, scores in adherence.items():
+                        # Determine expected framework from agent name
+                        expected_framework = None
+                        for framework in self.FRAMEWORK_TERMS.keys():
+                            if framework in agent:
+                                expected_framework = framework
                                 break
+                        
+                        # If we couldn't determine the framework, skip
+                        if not expected_framework:
+                            continue
+                            
+                        # Calculate influence from other frameworks
+                        other_frameworks = {f: s for f, s in scores.items() if f != expected_framework}
+                        cross_influence[agent] = other_frameworks
+                    
+                    self.analysis_results[s]["cross_framework_influence"] = cross_influence
+                else:
+                    continue
+            
+            influence = self.analysis_results[s]["cross_framework_influence"]
+            if not influence:
+                continue
+            
+            # Convert data to DataFrame for heatmap
+            data = []
+            agents = list(influence.keys())
+            frameworks = list(set(framework for agent_data in influence.values() for framework in agent_data))
+            
+            for agent in agents:
+                for framework in frameworks:
+                    score = influence[agent].get(framework, 0)
+                    data.append({
+                        "Agent": agent,
+                        "Framework": framework,
+                        "Influence Score": score
+                    })
+            
+            df = pd.DataFrame(data)
+            pivot_df = df.pivot(index="Agent", columns="Framework", values="Influence Score")
+            
+            # Create heatmap
+            plt.figure(figsize=(12, 8))
+            sns.heatmap(pivot_df, annot=True, cmap="YlGnBu", cbar_kws={'label': 'Influence Score'})
+            plt.title(f"Cross-Framework Influence: {s}", fontsize=14)
+            plt.tight_layout()
+            
+            return plt.gcf()  # Return the figure for saving
+    
+    def plot_alignment_matrix(self, scenario=None):
+        """
+        Plot alignment between agents using cosine similarity.
         
-        # Create the heatmap
-        plt.figure(figsize=(10, 8))
-        ax = sns.heatmap(
-            influence_matrix, 
-            annot=True, 
-            xticklabels=agents,
-            yticklabels=agents,
-            cmap="YlOrRd", 
-            vmin=0
-        )
+        Args:
+            scenario: Name of specific scenario to plot (None for all)
+        """
+        if not self.scenario_results:
+            print("No scenario results available. Load results first.")
+            return
         
-        # Set title and labels
-        title = "Cross-Framework Influence"
-        if scenario:
-            title += f" - {scenario}"
-        plt.title(title, fontsize=15)
-        plt.xlabel("Influencing Framework", fontsize=12)
-        plt.ylabel("Influenced Framework", fontsize=12)
+        # Get scenarios to plot
+        scenarios = [scenario] if scenario else list(self.scenario_results.keys())
+        if scenario and scenario not in self.scenario_results:
+            print(f"Scenario '{scenario}' not found in scenario results.")
+            return
         
-        # Rotate x-axis labels for better readability
-        plt.xticks(rotation=45, ha='right')
-        plt.tight_layout()
-        
-        return plt.gcf()
-
+        # For each scenario, create an alignment matrix
+        for s in scenarios:
+            responses = self.scenario_results[s]["agent_responses"]
+            if not responses:
+                continue
+            
+            # Calculate TF-IDF vectors for responses
+            agents = list(responses.keys())
+            texts = [responses[agent] for agent in agents]
+            
+            # Skip if fewer than 2 responses
+            if len(texts) < 2:
+                continue
+            
+            # Calculate TF-IDF vectors
+            vectorizer = TfidfVectorizer(stop_words='english')
+            try:
+                tfidf_matrix = vectorizer.fit_transform(texts)
+            except:
+                # If vectorization fails (e.g., empty strings), skip
+                continue
+            
+            # Calculate cosine similarity
+            similarity_matrix = cosine_similarity(tfidf_matrix)
+            
+            # Create heatmap
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(similarity_matrix, annot=True, cmap="YlGnBu", 
+                        xticklabels=agents, yticklabels=agents,
+                        cbar_kws={'label': 'Cosine Similarity'})
+            plt.title(f"Agent Alignment Matrix: {s}", fontsize=14)
+            plt.tight_layout()
+            
+            return plt.gcf()  # Return the figure for saving
+    
     def plot_decision_distribution(self, scenario=None):
         """
-        Plot the distribution of decisions across agents.
+        Plot the distribution of decisions made by agents.
         
         Args:
-            scenario (str, optional): Focus on a specific scenario
+            scenario: Name of specific scenario to plot (None for all)
+        """
+        if not self.analysis_results:
+            print("No analysis results available. Run analysis first.")
+            return
+        
+        # Get scenarios to plot
+        scenarios = [scenario] if scenario else list(self.analysis_results.keys())
+        if scenario and scenario not in self.analysis_results:
+            print(f"Scenario '{scenario}' not found in analysis results.")
+            return
+        
+        # For each scenario, create a distribution plot
+        for s in scenarios:
+            if "decisions" not in self.analysis_results[s] or "categories" not in self.analysis_results[s]["decisions"]:
+                continue
+                
+            categories = self.analysis_results[s]["decisions"]["categories"]
+            if not categories:
+                continue
+            
+            # Create pie chart
+            plt.figure(figsize=(10, 8))
+            labels = list(categories.keys())
+            values = list(categories.values())
+            colors = ['#ff9999','#66b3ff','#99ff99']
+            
+            # Only plot non-zero values
+            non_zero_labels = [labels[i] for i in range(len(values)) if values[i] > 0]
+            non_zero_values = [v for v in values if v > 0]
+            
+            if non_zero_values:
+                plt.pie(non_zero_values, labels=non_zero_labels, colors=colors[:len(non_zero_values)], 
+                        autopct='%1.1f%%', startangle=90, shadow=True)
+                plt.title(f"Decision Distribution: {s}", fontsize=14)
+                
+            return plt.gcf()  # Return the figure for saving
+    
+    def generate_comprehensive_report(self, output_dir, scenario=None):
+        """
+        Generate a comprehensive HTML report of all analyses.
+        
+        Args:
+            output_dir: Directory to save the report
+            scenario: Specific scenario to include (None for all)
             
         Returns:
-            matplotlib.figure.Figure: The generated figure
+            Path to the generated report file
         """
-        if self.results_df.empty:
+        if not self.analysis_results:
             print("No analysis results available. Run analysis first.")
             return None
         
-        # Filter for the specified scenario if provided
-        if scenario:
-            scenario_df = self.results_df[self.results_df['scenario'].str.contains(scenario, case=False)]
-            if scenario_df.empty:
-                print(f"No data for scenario: {scenario}")
-                return None
-        else:
-            # Use all data but filter to a single scenario type
-            # (decisions aren't comparable across different scenario types)
-            scenarios = self.results_df['scenario'].unique()
-            if len(scenarios) > 0:
-                scenario_df = self.results_df[self.results_df['scenario'] == scenarios[0]]
-            else:
-                scenario_df = self.results_df
-        
-        # Try to categorize decisions
-        # This is just a simple example for the trolley problem
-        decision_categories = []
-        
-        for idx, row in scenario_df.iterrows():
-            decision = row['decision'].lower()
-            
-            # Check for trolley-specific decisions
-            pull_count = sum(decision.count(term) for term in self.decision_terms["pull_lever"])
-            dont_pull_count = sum(decision.count(term) for term in self.decision_terms["dont_pull"])
-            
-            if pull_count > dont_pull_count:
-                decision_categories.append("Pull the lever")
-            elif dont_pull_count > pull_count:
-                decision_categories.append("Don't pull the lever")
-            else:
-                decision_categories.append("Unclear/Other")
-        
-        # Add the categorization back to the dataframe
-        scenario_df = scenario_df.copy()
-        scenario_df['decision_category'] = decision_categories
-        
-        # Create the count plot
-        plt.figure(figsize=(10, 6))
-        ax = sns.countplot(x='agent', hue='decision_category', data=scenario_df)
-        
-        # Set title and labels
-        title = "Decision Distribution by Agent"
-        if scenario:
-            title += f" - {scenario}"
-        plt.title(title, fontsize=15)
-        plt.xlabel("Agent", fontsize=12)
-        plt.ylabel("Count", fontsize=12)
-        
-        # Rotate x-axis labels for better readability
-        plt.xticks(rotation=45, ha='right')
-        plt.legend(title="Decision")
-        plt.tight_layout()
-        
-        return plt.gcf()
-
-    def generate_comprehensive_report(self, output_dir="analysis_results", scenario=None):
-        """
-        Generate a comprehensive analysis report with all visualizations.
-        
-        Args:
-            output_dir (str): Directory to save the report files
-            scenario (str, optional): Focus on a specific scenario
-            
-        Returns:
-            str: Path to the generated report
-        """
-        if self.results_df.empty:
-            print("No analysis results available. Run analysis first.")
-            return None
-        
-        # Create output directory if it doesn't exist
+        # Ensure output directory exists
         os.makedirs(output_dir, exist_ok=True)
         
-        # Generate an appropriate filename
-        if scenario:
-            report_file = os.path.join(output_dir, f"analysis_report_{scenario}_{int(time.time())}.html")
-        else:
-            report_file = os.path.join(output_dir, f"analysis_report_{int(time.time())}.html")
+        # Get scenarios to include
+        scenarios = [scenario] if scenario else list(self.analysis_results.keys())
+        if scenario and scenario not in self.analysis_results:
+            print(f"Scenario '{scenario}' not found in analysis results.")
+            return None
         
-        # Start building the HTML report
+        # Generate report filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        scenario_text = scenario if scenario else "all_scenarios"
+        report_filename = f"analysis_report_{scenario_text}_{timestamp}.html"
+        report_path = os.path.join(output_dir, report_filename)
+        
+        # Create figure paths
+        figure_paths = {}
+        for s in scenarios:
+            # Generate figures and save them
+            figure_paths[s] = {}
+            
+            # Framework adherence plot
+            fig = self.plot_framework_adherence(s)
+            if fig:
+                path = os.path.join(output_dir, f"{s}_framework_adherence.png")
+                fig.savefig(path)
+                plt.close(fig)
+                figure_paths[s]["framework_adherence"] = os.path.basename(path)
+            
+            # Political compass plot
+            fig = self.plot_political_compass(s)
+            if fig:
+                path = os.path.join(output_dir, f"{s}_political_compass.png")
+                fig.savefig(path)
+                plt.close(fig)
+                figure_paths[s]["political_compass"] = os.path.basename(path)
+            
+            # Cross-framework influence plot
+            fig = self.plot_cross_framework_influence(s)
+            if fig:
+                path = os.path.join(output_dir, f"{s}_cross_framework_influence.png")
+                fig.savefig(path)
+                plt.close(fig)
+                figure_paths[s]["cross_framework_influence"] = os.path.basename(path)
+            
+            # Alignment matrix plot
+            fig = self.plot_alignment_matrix(s)
+            if fig:
+                path = os.path.join(output_dir, f"{s}_alignment_matrix.png")
+                fig.savefig(path)
+                plt.close(fig)
+                figure_paths[s]["alignment_matrix"] = os.path.basename(path)
+            
+            # Decision distribution plot
+            fig = self.plot_decision_distribution(s)
+            if fig:
+                path = os.path.join(output_dir, f"{s}_decision_distribution.png")
+                fig.savefig(path)
+                plt.close(fig)
+                figure_paths[s]["decision_distribution"] = os.path.basename(path)
+        
+        # Generate HTML content
         html_content = f"""
         <!DOCTYPE html>
-        <html>
+        <html lang="en">
         <head>
-            <title>Agent Analysis Report</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>AI Governance Experiment Analysis Report</title>
             <style>
-                body {{ font-family: Arial, sans-serif; margin: 20px; }}
-                h1, h2, h3 {{ color: #333366; }}
-                .figure {{ margin: 20px 0; text-align: center; }}
-                .figure img {{ max-width: 100%; border: 1px solid #ddd; }}
-                table {{ border-collapse: collapse; width: 100%; }}
-                th, td {{ text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }}
-                tr:nth-child(even) {{ background-color: #f2f2f2; }}
-                th {{ background-color: #333366; color: white; }}
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    margin: 0;
+                    padding: 20px;
+                    color: #333;
+                }}
+                h1, h2, h3 {{
+                    color: #2c3e50;
+                }}
+                .container {{
+                    max-width: 1200px;
+                    margin: 0 auto;
+                }}
+                .scenario {{
+                    margin-bottom: 40px;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                    padding: 20px;
+                    background-color: #f9f9f9;
+                }}
+                .visualization {{
+                    margin: 20px 0;
+                    text-align: center;
+                }}
+                .visualization img {{
+                    max-width: 100%;
+                    height: auto;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                }}
+                table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 20px 0;
+                }}
+                th, td {{
+                    padding: 12px;
+                    border: 1px solid #ddd;
+                    text-align: left;
+                }}
+                th {{
+                    background-color: #f2f2f2;
+                }}
+                tr:nth-child(even) {{
+                    background-color: #f9f9f9;
+                }}
+                .footer {{
+                    margin-top: 40px;
+                    text-align: center;
+                    font-size: 0.8em;
+                    color: #777;
+                }}
             </style>
         </head>
         <body>
-            <h1>Agent Analysis Report</h1>
+            <div class="container">
+                <h1>AI Governance Experiment Analysis Report</h1>
+                <p>Generated on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
         """
         
-        # Add report generation time
-        import datetime
-        html_content += f"<p>Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>"
-        
-        # Add scenario information if applicable
-        if scenario:
-            html_content += f"<h2>Scenario: {scenario}</h2>"
+        # Add scenario-specific sections
+        for s in scenarios:
+            html_content += f"""
+                <div class="scenario">
+                    <h2>Scenario: {s}</h2>
+            """
             
-            # Try to find the scenario text
-            scenario_df = self.results_df[self.results_df['scenario'].str.contains(scenario, case=False)]
-            if not scenario_df.empty:
-                scenario_text = self.scenario_results.get(scenario_df['scenario'].iloc[0], {}).get('scenario_text', '')
-                if scenario_text:
-                    html_content += f"<h3>Scenario Text:</h3><p>{scenario_text}</p>"
-        
-        # Generate and save visualizations
-        
-        # 1. Political Compass
-        compass_fig = self.plot_political_compass(scenario)
-        if compass_fig:
-            compass_file = os.path.join(output_dir, "political_compass.png")
-            compass_fig.savefig(compass_file)
+            # Add scenario text if available
+            if s in self.scenario_results and "scenario_text" in self.scenario_results[s]:
+                scenario_text = self.scenario_results[s]["scenario_text"]
+                html_content += f"""
+                    <h3>Scenario Description</h3>
+                    <div class="scenario-text">
+                        <p>{scenario_text}</p>
+                    </div>
+                """
+            
+            # Add visualizations if available
+            if s in figure_paths:
+                html_content += f"""
+                    <h3>Visualizations</h3>
+                """
+                
+                # Framework adherence
+                if "framework_adherence" in figure_paths[s]:
+                    html_content += f"""
+                    <div class="visualization">
+                        <h4>Framework Adherence</h4>
+                        <p>This chart shows how much each agent uses terminology from different ethical frameworks.</p>
+                        <img src="{figure_paths[s]['framework_adherence']}" alt="Framework Adherence">
+                    </div>
+                    """
+                
+                # Political compass
+                if "political_compass" in figure_paths[s]:
+                    html_content += f"""
+                    <div class="visualization">
+                        <h4>Political Compass</h4>
+                        <p>This plot shows where each agent falls on the political compass based on their response.</p>
+                        <img src="{figure_paths[s]['political_compass']}" alt="Political Compass">
+                    </div>
+                    """
+                
+                # Cross-framework influence
+                if "cross_framework_influence" in figure_paths[s]:
+                    html_content += f"""
+                    <div class="visualization">
+                        <h4>Cross-Framework Influence</h4>
+                        <p>This heatmap shows how much each agent is influenced by frameworks other than their own.</p>
+                        <img src="{figure_paths[s]['cross_framework_influence']}" alt="Cross-Framework Influence">
+                    </div>
+                    """
+                
+                # Alignment matrix
+                if "alignment_matrix" in figure_paths[s]:
+                    html_content += f"""
+                    <div class="visualization">
+                        <h4>Agent Alignment Matrix</h4>
+                        <p>This matrix shows the similarity between each agent's reasoning, based on cosine similarity.</p>
+                        <img src="{figure_paths[s]['alignment_matrix']}" alt="Agent Alignment Matrix">
+                    </div>
+                    """
+                
+                # Decision distribution
+                if "decision_distribution" in figure_paths[s]:
+                    html_content += f"""
+                    <div class="visualization">
+                        <h4>Decision Distribution</h4>
+                        <p>This chart shows the distribution of decisions made by the agents.</p>
+                        <img src="{figure_paths[s]['decision_distribution']}" alt="Decision Distribution">
+                    </div>
+                    """
+            
+            # Add analytical findings
             html_content += f"""
-            <h2>Political Compass Analysis</h2>
-            <div class="figure">
-                <img src="{os.path.basename(compass_file)}" alt="Political Compass">
-                <p>This chart shows where each agent's response falls on the progressive/conservative
-                and authoritarian/distributed power axes.</p>
-            </div>
+                <h3>Key Findings</h3>
             """
-            plt.close(compass_fig)
-        
-        # 2. Alignment Matrix
-        alignment_fig = self.plot_alignment_matrix(scenario)
-        if alignment_fig:
-            alignment_file = os.path.join(output_dir, "alignment_matrix.png")
-            alignment_fig.savefig(alignment_file)
-            html_content += f"""
-            <h2>Agent Alignment Analysis</h2>
-            <div class="figure">
-                <img src="{os.path.basename(alignment_file)}" alt="Alignment Matrix">
-                <p>This heatmap shows how closely aligned different agents' responses are.
-                Higher values (darker colors) indicate greater similarity between responses.</p>
-            </div>
+            
+            # Add sentiment analysis
+            if "sentiment" in self.analysis_results[s]:
+                html_content += f"""
+                <h4>Sentiment Analysis</h4>
+                <table>
+                    <tr>
+                        <th>Agent</th>
+                        <th>Positive</th>
+                        <th>Negative</th>
+                        <th>Neutral</th>
+                        <th>Compound</th>
+                    </tr>
+                """
+                
+                for agent, scores in self.analysis_results[s]["sentiment"].items():
+                    html_content += f"""
+                    <tr>
+                        <td>{agent}</td>
+                        <td>{scores["positive"]:.2f}</td>
+                        <td>{scores["negative"]:.2f}</td>
+                        <td>{scores["neutral"]:.2f}</td>
+                        <td>{scores["compound"]:.2f}</td>
+                    </tr>
+                    """
+                
+                html_content += """
+                </table>
+                """
+            
+            # Add moral foundations analysis
+            if "moral_foundations" in self.analysis_results[s]:
+                html_content += f"""
+                <h4>Moral Foundations Analysis</h4>
+                <table>
+                    <tr>
+                        <th>Agent</th>
+                        <th>Care/Harm</th>
+                        <th>Fairness/Cheating</th>
+                        <th>Loyalty/Betrayal</th>
+                        <th>Authority/Subversion</th>
+                        <th>Sanctity/Degradation</th>
+                        <th>Liberty/Oppression</th>
+                    </tr>
+                """
+                
+                for agent, scores in self.analysis_results[s]["moral_foundations"].items():
+                    html_content += f"""
+                    <tr>
+                        <td>{agent}</td>
+                        <td>{scores.get("care_harm", 0):.2f}</td>
+                        <td>{scores.get("fairness_cheating", 0):.2f}</td>
+                        <td>{scores.get("loyalty_betrayal", 0):.2f}</td>
+                        <td>{scores.get("authority_subversion", 0):.2f}</td>
+                        <td>{scores.get("sanctity_degradation", 0):.2f}</td>
+                        <td>{scores.get("liberty_oppression", 0):.2f}</td>
+                    </tr>
+                    """
+                
+                html_content += """
+                </table>
+                """
+            
+            # Add decision analysis
+            if "decisions" in self.analysis_results[s] and "raw_decisions" in self.analysis_results[s]["decisions"]:
+                html_content += f"""
+                <h4>Decision Analysis</h4>
+                <table>
+                    <tr>
+                        <th>Agent</th>
+                        <th>Decision</th>
+                    </tr>
+                """
+                
+                for agent, decision in self.analysis_results[s]["decisions"]["raw_decisions"].items():
+                    html_content += f"""
+                    <tr>
+                        <td>{agent}</td>
+                        <td>{decision}</td>
+                    </tr>
+                    """
+                
+                html_content += """
+                </table>
+                """
+            
+            html_content += """
+                </div>
             """
-            plt.close(alignment_fig)
         
-        # 3. Framework Adherence
-        adherence_fig = self.plot_framework_adherence(scenario)
-        if adherence_fig:
-            adherence_file = os.path.join(output_dir, "framework_adherence.png")
-            adherence_fig.savefig(adherence_file)
-            html_content += f"""
-            <h2>Framework Adherence Analysis</h2>
-            <div class="figure">
-                <img src="{os.path.basename(adherence_file)}" alt="Framework Adherence">
-                <p>This chart shows how well each agent adheres to its assigned framework.
-                Higher percentages indicate stronger adherence to framework-specific reasoning.</p>
-            </div>
-            """
-            plt.close(adherence_fig)
-        
-        # 4. Cross-Framework Influence
-        influence_fig = self.plot_cross_framework_influence(scenario)
-        if influence_fig:
-            influence_file = os.path.join(output_dir, "cross_framework_influence.png")
-            influence_fig.savefig(influence_file)
-            html_content += f"""
-            <h2>Cross-Framework Influence Analysis</h2>
-            <div class="figure">
-                <img src="{os.path.basename(influence_file)}" alt="Cross-Framework Influence">
-                <p>This heatmap shows how much each framework influences others.
-                Higher values indicate stronger influence.</p>
-            </div>
-            """
-            plt.close(influence_fig)
-        
-        # 5. Decision Distribution
-        decision_fig = self.plot_decision_distribution(scenario)
-        if decision_fig:
-            decision_file = os.path.join(output_dir, "decision_distribution.png")
-            decision_fig.savefig(decision_file)
-            html_content += f"""
-            <h2>Decision Distribution Analysis</h2>
-            <div class="figure">
-                <img src="{os.path.basename(decision_file)}" alt="Decision Distribution">
-                <p>This chart shows the distribution of decisions across different agents.</p>
-            </div>
-            """
-            plt.close(decision_fig)
-        
-        # Add key metrics table
+        # Close HTML content
         html_content += """
-        <h2>Key Metrics Summary</h2>
-        <table>
-            <tr>
-                <th>Agent</th>
-                <th>Progressive/Conservative Score</th>
-                <th>Authoritarian/Distributed Score</th>
-                <th>Framework Adherence</th>
-                <th>Sentiment</th>
-            </tr>
-        """
-        
-        # Filter for the specified scenario if provided
-        summary_df = self.results_df
-        if scenario:
-            summary_df = summary_df[summary_df['scenario'].str.contains(scenario, case=False)]
-        
-        # Group by agent and calculate means
-        summary_df = summary_df.groupby('agent').agg({
-            'prog_cons_score': 'mean',
-            'auth_dist_score': 'mean',
-            'framework_adherence': 'mean',
-            'sentiment_compound': 'mean'
-        }).reset_index()
-        
-        # Add rows to the table
-        for _, row in summary_df.iterrows():
-            html_content += f"""
-            <tr>
-                <td>{row['agent']}</td>
-                <td>{row['prog_cons_score']:.3f}</td>
-                <td>{row['auth_dist_score']:.3f}</td>
-                <td>{row['framework_adherence']:.1f}%</td>
-                <td>{row['sentiment_compound']:.3f}</td>
-            </tr>
-            """
-        
-        html_content += "</table>"
-        
-       # Add key concepts in a two-column layout
-        html_content += "<h2>Key Concepts by Agent</h2>"
-
-        # Group agents by base name (without _response)
-        agent_pairs = {}
-        for agent in summary_df['agent']:
-            if '_response' in agent:
-                continue  # Skip response agents, we'll handle them with their base pair
-            
-            base_name = agent
-            response_name = f"{agent}_response"
-            
-            # Only add pairs where both exist
-            if response_name in summary_df['agent'].values:
-                agent_pairs[base_name] = response_name
-
-        # Create a table for side-by-side display
-        html_content += """
-        <style>
-        .concepts-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .concepts-table td {
-            vertical-align: top;
-            width: 50%;
-            padding: 10px;
-        }
-        .concepts-table h3 {
-            margin-top: 0;
-        }
-        </style>
-        <table class="concepts-table">
-        """
-
-        # Process each agent pair
-        for base_agent, response_agent in agent_pairs.items():
-            html_content += "<tr><td>"  # Left column
-            
-            # Base agent concepts
-            html_content += f"<h3>{base_agent}</h3>"
-            
-            # Filter for this agent
-            agent_df = self.results_df[self.results_df['agent'] == base_agent]
-            if scenario:
-                agent_df = agent_df[agent_df['scenario'].str.contains(scenario, case=False)]
-            
-            # Collect all key concepts
-            base_concepts = {}
-            for _, row in agent_df.iterrows():
-                concepts = row.get('key_concepts', {})
-                if isinstance(concepts, dict):
-                    for concept, count in concepts.items():
-                        if concept in base_concepts:
-                            base_concepts[concept] += count
-                        else:
-                            base_concepts[concept] = count
-            
-            # Sort and display top 10
-            sorted_concepts = sorted(base_concepts.items(), key=lambda x: x[1], reverse=True)[:10]
-            html_content += "<ul>"
-            for concept, count in sorted_concepts:
-                html_content += f"<li>{concept}: {count}</li>"
-            html_content += "</ul>"
-            
-            html_content += "</td><td>"  # Right column
-            
-            # Response agent concepts
-            html_content += f"<h3>{response_agent}</h3>"
-            
-            # Filter for response agent
-            resp_df = self.results_df[self.results_df['agent'] == response_agent]
-            if scenario:
-                resp_df = resp_df[resp_df['scenario'].str.contains(scenario, case=False)]
-            
-            # Collect response concepts
-            resp_concepts = {}
-            for _, row in resp_df.iterrows():
-                concepts = row.get('key_concepts', {})
-                if isinstance(concepts, dict):
-                    for concept, count in concepts.items():
-                        if concept in resp_concepts:
-                            resp_concepts[concept] += count
-                        else:
-                            resp_concepts[concept] = count
-            
-            # Sort and display top 10
-            sorted_concepts = sorted(resp_concepts.items(), key=lambda x: x[1], reverse=True)[:10]
-            html_content += "<ul>"
-            for concept, count in sorted_concepts:
-                html_content += f"<li>{concept}: {count}</li>"
-            html_content += "</ul>"
-            
-            html_content += "</td></tr>"  # End row
-
-        # Handle any unpaired agents
-        for agent in summary_df['agent']:
-            if '_response' in agent:
-                base_name = agent.replace('_response', '')
-                if base_name not in summary_df['agent'].values:
-                    # This is a response agent without a base agent
-                    html_content += f"<tr><td></td><td>"  # Empty left column
-                    html_content += f"<h3>{agent}</h3>"
-                    # Similar concept collection as above
-                    html_content += "</td></tr>"
-            elif f"{agent}_response" not in summary_df['agent'].values:
-                # This is a base agent without a response agent
-                html_content += f"<tr><td>"
-                html_content += f"<h3>{agent}</h3>"
-                # Similar concept collection as above
-                html_content += "</td><td></td></tr>"  # Empty right column
-
-        html_content += "</table>"  # Close the table
-        
-        # Finish HTML
-        html_content += """
+                <div class="footer">
+                    <p>AI Governance Experiment Analysis Report</p>
+                </div>
+            </div>
         </body>
         </html>
         """
         
-        # Write the HTML file
-        with open(report_file, 'w') as f:
+        # Write HTML to file
+        with open(report_path, 'w', encoding='utf-8') as f:
             f.write(html_content)
         
-        print(f"Comprehensive report saved to: {report_file}")
-        return report_file
-
-# Example usage
-if __name__ == "__main__":
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Analyze agent responses to scenarios")
-    parser.add_argument("--results_dir", type=str, default="results",
-                        help="Directory containing result files")
-    parser.add_argument("--scenario", type=str, default=None,
-                        help="Filter for a specific scenario")
-    parser.add_argument("--output_dir", type=str, default="analysis_results",
-                        help="Directory to save analysis results")
-    parser.add_argument("--report", action="store_true",
-                        help="Generate a comprehensive HTML report")
-    
-    args = parser.parse_args()
-    
-    # Create and run the analyzer
-    analyzer = AgentResponseAnalyzer(results_dir=args.results_dir)
-    analyzer.load_results(scenario_filter=args.scenario)
-    analyzer.run_analysis(scenario_filter=args.scenario)
-    
-    # Generate visualizations
-    analyzer.plot_political_compass(args.scenario)
-    plt.savefig(os.path.join(args.output_dir, "political_compass.png"))
-    plt.close()
-    
-    analyzer.plot_alignment_matrix(args.scenario)
-    plt.savefig(os.path.join(args.output_dir, "alignment_matrix.png"))
-    plt.close()
-    
-    analyzer.plot_framework_adherence(args.scenario)
-    plt.savefig(os.path.join(args.output_dir, "framework_adherence.png"))
-    plt.close()
-    
-    # Generate report if requested
-    if args.report:
-        analyzer.generate_comprehensive_report(args.output_dir, args.scenario)
+        print(f"Report generated: {report_path}")
+        return report_path
