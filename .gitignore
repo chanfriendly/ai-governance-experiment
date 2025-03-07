@@ -27,13 +27,20 @@ var/
 .ipynb_checkpoints
 
 # Models and data
-models/
+models/*
+!models/.gitkeep
 *.pt
 *.pth
 *.bin
-!models/.gitkeep
+
+# Results
+results/*
 !results/.gitkeep
+analysis_results/*
 !analysis_results/.gitkeep
+
+# Keep scenarios
+!data/scenarios/
 
 # Logs
 logs/
