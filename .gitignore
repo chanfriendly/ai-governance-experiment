@@ -31,6 +31,9 @@ models/
 *.pt
 *.pth
 *.bin
+!models/.gitkeep
+!results/.gitkeep
+!analysis_results/.gitkeep
 
 # Logs
 logs/
