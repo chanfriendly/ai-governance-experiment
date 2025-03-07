@@ -1,57 +1,3 @@
-def get_model_path(config: Dict[str, Any]) -> str:
-    """
-    Resolve the model path using various methods:
-    1. Check if an environment variable is specified and use that
-    2. Use the direct path specified in the config
-    3. Use a relative path from the current directory
-    
-    Returns:
-        Resolved path to the model file
-    """
-    model_path = config['model']['model_name']
-    
-    # Check if an environment variable is specified
-    if 'model_path_env' in config['model'] and config['model']['model_path_env'] in os.environ:
-        env_path = os.environ[config['model']['model_path_env']]
-        if os.path.isfile(env_path):
-            return env_path
-        elif os.path.isdir(env_path):
-            # If the env var points to a directory, join with the model name
-            model_name = os.path.basename(model_path)
-            return os.path.join(env_path, model_name)
-    
-    # If the path is absolute and exists, use it directly
-    if os.path.isabs(model_path) and os.path.exists(model_path):
-        return model_path
-    
-    # Check if the model exists in the relative path
-    if os.path.exists(model_path):
-        return os.path.abspath(model_path)
-    
-    # Try to find the model in common locations
-    common_locations = [
-        "models/",
-        "./models/",
-        "../models/",
-        os.path.expanduser("~/models/"),
-        os.path.expanduser("~/.cache/models/"),
-        os.path.expanduser("~/.cache/llama.cpp/")
-    ]
-    
-    model_name = os.path.basename(model_path)
-    for location in common_locations:
-        check_path = os.path.join(location, model_name)
-        if os.path.exists(check_path):
-            return os.path.abspath(check_path)
-    
-    # If we can't find the model, warn but return the original path
-    # (the error will be handled later when trying to load the model)
-    print(f"Warning: Could not find model at {model_path} or in common locations.")
-    print(f"Please place your model file at {os.path.abspath(model_path)} or set the {config['model'].get('model_path_env', 'MODEL_PATH')} environment variable.")
-    
-    return model_path
-
-
 def get_results_dir(scenario_name: str, run_id: str = None) -> str:
     """
     Create and return a directory for storing results.
@@ -125,14 +71,11 @@ def get_inference_engine(config: Dict[str, Any]):
     """
     engine_type = config.get('engine', 'NATIVE')
     
-    # Get the resolved model path
-    resolved_model_path = get_model_path(config)
-    
     # Print some debug info about the model we're loading
-    print(f"Loading model: {resolved_model_path} with engine: {engine_type}")
+    print(f"Loading model: {config['model']['model_name']} with engine: {engine_type}")
     
     model_params = ModelParams(
-        model_name=resolved_model_path,
+        model_name=config['model']['model_name'],
         trust_remote_code=config['model'].get('trust_remote_code', False),
         torch_dtype_str=config['model'].get('torch_dtype_str', 'float16'),
         device_map=config['model'].get('device_map', 'auto')
@@ -256,21 +199,6 @@ def test_agent(config_path: str, agent_name: str = None, scenario_name: str = No
         f.write(f"Model: {config['model']['model_name']}\n")
         f.write(f"Engine: {config.get('engine', 'NATIVE')}\n")
         f.write(f"Scenario: {scenario_name}\n")
-        f.write(f"Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-        
-        # Save generation parameters
-        f.write(f"# GENERATION PARAMETERS\n")
-        f.write(f"Temperature: {inference_config.generation.temperature}\n")
-        f.write(f"Max tokens: {inference_config.generation.max_new_tokens}\n")
-        f.write(f"Top-p: {inference_config.generation.top_p}\n")
-        
-        # Additional model parameters if available
-        if model_kwargs:
-            f.write(f"\n# MODEL PARAMETERS\n")
-            for key, value in model_kwargs.items():
-                if key != 'chat_template':  # Skip the template as it can be verbose
-                    f.write(f"{key}: {value}\n")
-            
         f.write("-" * 50 + "\n")
         f.write(f"SCENARIO TEXT:\n{scenario}\n")
         f.write("-" * 50 + "\n\n")

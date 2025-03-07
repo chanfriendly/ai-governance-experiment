@@ -18,8 +18,8 @@ echo Installing other dependencies...
 pip install -r requirements_win.txt
 
 echo.
-echo Loading GPT-2 as a fallback model...
-python utils\download_model_win.py --model gpt2
+echo Loading tiny model as a fallback...
+python utils\download_model_win.py --model phi2
 
 echo.
 echo Dependencies installed successfully!
