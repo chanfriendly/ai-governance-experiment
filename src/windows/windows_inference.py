@@ -10,49 +10,63 @@ logger = logging.getLogger("windows_inference")
 class WindowsInferenceEngine:
     """A simplified Windows-compatible inference engine."""
     
-    def __init__(self, model_params):
-        """Initialize the Windows inference engine."""
-        self.model_path = model_params.model_name
-        logger.info(f"Loading model from {self.model_path}")
-        
-        try:
-            from transformers import AutoModelForCausalLM, AutoTokenizer
-            
-            # Try to load as a Hugging Face model ID
-            model_id = "gpt2"  # Fallback to GPT-2
-            logger.info(f"Loading {model_id} model")
-            
-            self.tokenizer = AutoTokenizer.from_pretrained(model_id)
-            self.model = AutoModelForCausalLM.from_pretrained(
-                model_id,
-                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-                device_map="auto" if torch.cuda.is_available() else None
-            )
-            logger.info("Model loaded successfully")
-            
-        except Exception as e:
-            logger.error(f"Error loading model: {e}")
-            raise
+# At initialization in windows_inference.py:
+def __init__(self, model_params):
+    self.model_path = model_params.model_name
     
-    def generate(self, prompt, max_tokens=1024, temperature=0.7, top_p=0.9):
-        """Generate text from the model."""
+    # Try different model options in sequence
+    if os.path.exists(self.model_path) and os.path.isdir(self.model_path):
+        # Try loading from local directory
         try:
-            inputs = self.tokenizer(prompt, return_tensors="pt")
-            if torch.cuda.is_available():
-                inputs = {k: v.cuda() for k, v in inputs.items()}
-            
-            outputs = self.model.generate(
-                inputs["input_ids"], 
-                max_new_tokens=max_tokens,
-                temperature=temperature if temperature > 0 else 0.01,  # Avoid 0
-                top_p=top_p,
-                do_sample=temperature > 0
-            )
-            return self.tokenizer.decode(outputs[0], skip_special_tokens=True)[len(prompt):]
-            
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_path)
+            logger.info(f"Loaded model from local directory: {self.model_path}")
+            return
         except Exception as e:
-            logger.error(f"Error generating text: {e}")
-            return f"Error generating response: {str(e)}"
+            logger.warning(f"Could not load local model: {e}")
+    
+    # Try various HF models as fallbacks
+    models_to_try = ["microsoft/phi-2", "gpt2", "distilgpt2"]
+    
+    for model_id in models_to_try:
+        try:
+            logger.info(f"Trying to load {model_id}...")
+            self.tokenizer = AutoTokenizer.from_pretrained(model_id)
+            self.model = AutoModelForCausalLM.from_pretrained(model_id)
+            logger.info(f"Successfully loaded {model_id}")
+            return
+        except Exception as e:
+            logger.warning(f"Failed to load {model_id}: {e}")
+    
+    raise ValueError("Could not load any model")
+    
+# In src/windows/windows_inference.py, update generate method:
+def generate(self, prompt, max_tokens=1024, temperature=0.7, top_p=0.9):
+    try:
+        inputs = self.tokenizer(prompt, return_tensors="pt", padding=True)
+        attention_mask = inputs["attention_mask"]
+        
+        # Set parameters to avoid errors
+        generate_kwargs = {
+            "max_new_tokens": min(max_tokens, 512),  # Limit to avoid errors
+            "temperature": max(temperature, 0.01),  # Avoid 0
+            "top_p": top_p,
+            "do_sample": temperature > 0,
+            "attention_mask": attention_mask,
+            "pad_token_id": self.tokenizer.eos_token_id
+        }
+        
+        outputs = self.model.generate(**inputs, **generate_kwargs)
+        decoded_output = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        
+        # Extract just the response part (after prompt)
+        prompt_tokens = len(self.tokenizer.encode(prompt))
+        response_text = decoded_output
+        
+        return response_text
+    except Exception as e:
+        logger.error(f"Error generating text: {e}")
+        return f"Error generating response: {str(e)}"
     
     def infer_online(self, conversations, inference_config):
         """Process a list of conversations and return responses."""
