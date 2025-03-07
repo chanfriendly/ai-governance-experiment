@@ -134,6 +134,8 @@ def get_model_path(config: Dict[str, Any]) -> str:
     logger.warning(f"Could not find model at {model_path} or in common locations.")
     logger.warning(f"Please place your model file at {os.path.abspath(model_path)} or set the {config['model'].get('model_path_env', 'MODEL_PATH')} environment variable.")
 
+    return model_path
+
 def get_inference_engine(config: Dict[str, Any]):
     """
     Get the appropriate inference engine based on configuration and platform.
@@ -178,7 +180,7 @@ def get_inference_engine(config: Dict[str, Any]):
         # Use Windows-specific engine on Windows
         if platform.system() == "Windows":
             logger.info("Creating Windows inference engine")
-            return WindowsInferenceEngine(model_params=model_params)
+            return WindowsInferenceEngine()
         else:
             # Use appropriate Oumi engine based on configuration
             logger.info(f"Creating {engine_type} inference engine")

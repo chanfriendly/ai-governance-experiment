@@ -191,7 +191,7 @@ def get_inference_engine(config: Dict[str, Any]):
         # Use Windows-specific engine on Windows
         if platform.system() == "Windows":
             logger.info("Creating Windows inference engine")
-            return WindowsInferenceEngine(model_params=model_params)
+            return WindowsInferenceEngine()  # No parameters needed
         else:
             # Use appropriate Oumi engine based on configuration
             logger.info(f"Creating {engine_type} inference engine")

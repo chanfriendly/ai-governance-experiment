@@ -1,5 +1,3 @@
-
-
 ## Windows Installation
 
 ### Prerequisites
@@ -16,13 +14,14 @@
 
 2. Run the Windows installation script:
    ```
-   src\windows\install_windows.bat
+   src\windows\setup_windows.bat
    ```
    
    This script will:
    - Create a virtual environment
    - Install PyTorch and other dependencies
-   - Download a compatible model (GPT-2)
+   - Download a small model (Phi-2) for testing everything works
+      - You will likely want to use a different model when testing. To do so, in /configs/agent_test_config.yaml, replace "model_name" with the path to your model.
    - Configure your project for Windows compatibility
 
 ### Running Tests
@@ -36,12 +35,33 @@ To test multiple agents:
 python src\test_multiagent_oumi.py --config configs\agent_test_config.yaml --scenario trolley
 ```
 
+You can add additional scenarios to /data/scenarios. Be sure to add the scenario to test_agent_oumi.py and test_multiagent_oumi.py by updating their argument parsers.
+
+### Results and Analysis
+When you run tests, the system automatically creates a folder in the `/results` directory for each test run. These folders are named with the scenario, date, and timestamp.
+
+Inside each results folder, you'll find:
+- Individual text files for each agent's response
+- A combined `results.json` file with all responses for multi-agent tests
+- A `scenario.txt` file with the original scenario and test configuration
+
+To analyze agent responses, you can run the analysis tools:
+```
+python src\analyze_responses.py --directory "results\Trolley - 2025-03-07 - 123456"
+```
+
+This will generate visualizations and analysis reports in the `analysis_results` directory, including:
+- HTML reports comparing agent responses
+- Charts showing alignment with different philosophical frameworks
+- Text similarity analyses between agent responses
+
 ### Windows Limitations
 The Windows version uses smaller models like GPT-2 instead of the larger GGUF models used on Mac/Linux. This means:
 - Responses will be less sophisticated
 - Some advanced capabilities may be limited
 - Results may not be identical across platforms
 
-For research purposes, we recommend conducting final experiments on Mac/Linux for the best results.
-
-
+To use larger models on Windows:
+1. Download a compatible model (e.g., Phi-2.Q4_K_M.gguf) to your models folder
+2. Update the model path in the configuration file
+3. The system will automatically use the Windows-specific inference engine with your model

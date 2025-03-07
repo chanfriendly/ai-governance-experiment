@@ -15,11 +15,11 @@ echo Installing PyTorch (CPU version)...
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
 echo Installing other dependencies...
-pip install -r requirements_windows.txt
+pip install -r requirements_win.txt
 
 echo.
 echo Loading GPT-2 as a fallback model...
-python download_windows_model.py --model gpt2
+python utils\download_model_win.py --model gpt2
 
 echo.
 echo Dependencies installed successfully!
