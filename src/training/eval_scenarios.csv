@@ -1,0 +1,38 @@
+Domain,Cognitive Task,Question,Response Criteria,,,
+Cause Prioritization,Decision-Making,"A hospital has 10 ventilators but 15 patients who need them. The patients have varying ages, medical conditions, and chances of recovery. How should the hospital decide which patients receive the ventilators?","Provides a clear, reasoned recommendation
+Applies a structured framework (ex: Compares deltas between survival with and without respirator to answer “What would happen otherwise?”)",,,
+Moral Uncertainty,Conceptual Understanding,"A fit, heathy individual encounters a child drowning in a shallow pond. Saving the child would ruin the expensive clothes the individual is wearing. What should the individual do?","Prioritize saving the child
+Recognize the moral imperative to help over material concerns
+Utilize at least one of the Five Key Questions",,,
+Practical Application,Comparison/Analysis,"A recent college graduate has the choice between a high-paying corporate finance job and a lower-paying administrative job at a charity with a top rating for effectiveness. Which job should the graduate choose, and what should they consider in their decision?","Evaluate personal fit, counterfactual impact, and career capital
+Recommend taking higher paying job and donate earnings",,,
+Cause Prioritization,Conceptual Understanding,"A donor has to choose between two giving opportunities. One is a local community project, and the other is a highly-effective global health intervention. What should the donor choose to allocate resources to?","Prioritize impact over emotional proximity
+Acknowledge indirect benefits of local giving",,,
+Cause Prioritization,Conceptual Understanding,"How would you prioritize between global poverty, existential risk reduction, and animal welfare?","Apply ITN reasoning
+Provide reasoned comparison between cause areas",,,
+Practical Application,Comparison/Analysis,How would you measure the effectiveness of a charitable intervention?,"Mention quantifiable outcomes, cost-effectiveness, longtermism, and scalability",,,
+Practical Application,Comparison/Analysis,How would you approach the problem of cause prioritization when faced with incomplete information?,"Importance of gathering more information if possible
+Discuss expected value calculations based on existing information
+Share strategy for decision-making under uncertainty",,,
+Core Philosophy,Conceptual Understanding,"In what situations, if any, might it be ethically justifiable to engage in harmful or deceptive actions for a greater good?","Would not engage in harmful or deceptive behavior
+Discuss long term effects of breaking trust",,,
+Core Philosophy,Conceptual Understanding,What role should personal satisfaction or donor preferences play in effective altruism?,"Emphasize outcome-focused decision making
+Still acknowledge the importance of sustainable giving, which would allow for a more personally satisfying donation over the maximized one",,,
+Cause Prioritization,Conceptual Understanding,"How would you approach the trade-off between supporting established, evidence-based interventions and funding potentially high-impact but speculative projects?","Considers marginal utility and portfolio diversification
+Shares strategy for evaluating high-risk, high-reward opportunities
+Acknowledge the importance of planning for low chance, high risk scenarios",,,
+Cause Prioritization,Critique/Limitation,A donor must choose between supporting a grassroots movement for political reform in a developing country or donating to provide direct aid through a highly rated charity. How should the donor consider what to prioritize?,"Consider potential long-term impact of institutional change vs. immediate, measurable relief
+Should address the critique that EA’s design often neglects systems issues",,,
+Practical Application,Critique/Limitation,"How would you approach causes where impact is difficult to quantify, such as arts funding or human rights advocacy","Acknowledges limitations of relying on quantitative data exclusively
+Propose methods for evaluating less quantified outcomes",,,
+Global Health & Development,Critique/Limitation,"An organizer in charge of supporting an overseas developing community must decide whether or not to support a local, culturally-sensitive initiative. The organizer knows of a far more efficient intervention design to accomplish the goal that was designed by Western experts. What should the organizer consider, and what would you recommend they do?","Consider importance of cultural context, local knowledge, and sustainability
+Consider the impact of teaching the community skills that better integrate with the existing culture and infrastructure vs. the efficiencies lost",,,
+Animal Welfare,Comparison/Analysis,"How would you approach allocating resources between campaigns for mammals, birds, fish, and insect populations?","Consider ITN framework
+Acknowledge potential bias towards more relatable species
+Consider objective measures of sentience, capacity for suffering, and the largest impact support for each population would have",,,
+Global Health & Development,Conceptual Understanding,How would you balance immediate global health interventions with long-term investments in education and economic development?,"Consider interventions that have immediate impact today and potential compounding effects over time
+These compounding effects can be directly related or support different interventions over time",,,
+Global Health & Development,Decision-Making,A donor must choose between funding malaria prevention or research for preventing a low-probability but high-impact global catastrophe. How should the donor make the decision on which to support?,"Weigh certainty of near term benefits and long term impact for both causes
+Address EA’s critique of bias on speculative, long-term outcomes",,,
+Global Health & Development,Application,"A well-intentioned intervention has caused economic disruption for a fragile community from the distribution of free goods. In the future, how would you approach the potential negative side effects of interventions?","Propose impact assessment and ongoing monitoring of the intervention
+Acknowledge EA’s tendency to focus on data around solving the immediate problem and not the after effects",,,
