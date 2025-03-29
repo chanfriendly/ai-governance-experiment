@@ -54,3 +54,6 @@ logs/
 .vscode/
 *.swp
 *.swo
+
+# Transcripts
+/src/training/rawtrainingdata/
